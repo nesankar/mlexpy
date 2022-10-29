@@ -1,11 +1,17 @@
 import numpy as np
 import logging
-from typing import Dict, Optional, Any, Iterable
+from typing import Dict, Optional, Any, Iterable, Callable
 
 from sklearn.metrics import (
     balanced_accuracy_score,
     f1_score,
     confusion_matrix,
+    classification_report,
+    accuracy_score,
+    mean_absolute_error,
+    roc_auc_score,
+    RocCurveDisplay,
+    mean_squared_error,
 )
 from sklearn.model_selection import (
     GridSearchCV,
@@ -35,6 +41,7 @@ class ExpiramentBase:
         self.test_cv_split = 0.4
         self.rnd = np.random.RandomState(rnd_int)
         self.cv_split_count = cv_split_count
+        self.metric_dict: Dict[str, Callable] = {}
 
     def set_pipeline(self, feat_coor_thresh: float = 0.90, top_cols=0.5) -> None:
         """Reset the params of the pipeline"""
@@ -64,8 +71,12 @@ class ExpiramentBase:
         return predictions
 
     def evaluate_predictions(
-        self, full_setup: ExperimentSetup, predictions: Iterable
-    ) -> None:
+        self,
+        full_setup: ExperimentSetup,
+        predictions: Iterable,
+        baseline_prediction: bool = False,
+        model: Optional[Any] = None,
+    ) -> Dict[str, float]:
         raise NotImplementedError("This needs to be implemented in the child class.")
 
     def cv_splits(self, n_splits: int = 5) -> StratifiedShuffleSplit:
@@ -118,6 +129,14 @@ class ExpiramentBase:
         logger.info(cv_report(cv_search.cv_results_))
         return cv_search.best_estimator_
 
+    def add_metric(self, metric: Callable, name: str) -> None:
+        """Add the provided metric to the metric_dict"""
+        self.metric_dict[name] = metric
+
+    def remove_metric(self, name: str) -> None:
+        """Add the provided metric to the metric_dict"""
+        del self.metric_dict[name]
+
 
 class ClassifierExpirament(ExpiramentBase):
     def __init__(
@@ -126,6 +145,13 @@ class ClassifierExpirament(ExpiramentBase):
         super().__init__(train_setup, test_setup, cv_split_count)
         self.baseline_value = None
         self.standard_metric = balanced_accuracy_score
+        self.metric_dict = {
+            "f1_macro": f1_score,
+            "accuracy": accuracy_score,
+            "confusion_matrix": confusion_matrix,
+            "classification_report": classification_report,
+            "roc_score": roc_auc_score,
+        }
 
     def process_data(self) -> ExperimentSetup:
         """Perform the data processing here"""
@@ -134,49 +160,94 @@ class ClassifierExpirament(ExpiramentBase):
         )
 
     def evaluate_predictions(
-        self, full_setup: ExperimentSetup, predictions: Iterable
-    ) -> None:
-        """Evaluate all predictions"""
+        self,
+        full_setup: ExperimentSetup,
+        predictions: Iterable,
+        baseline_prediction: bool = False,
+        model: Optional[Any] = None,
+    ) -> Dict[str, float]:
+        """Evaluate all predictions, and return the results in a dict"""
 
-        # First test the predictions...
-        conf_mat = confusion_matrix(full_setup.test_data.labels, predictions)
-        bal_acc = balanced_accuracy_score(full_setup.test_data.labels, predictions)
-        macro_f1 = f1_score(full_setup.test_data.labels, predictions, average="macro")
-        micro_f1 = f1_score(full_setup.test_data.labels, predictions, average="micro")
-        weighted_f1 = f1_score(
-            full_setup.test_data.labels, predictions, average="weighted"
+        if baseline_prediction:
+            if not self.baseline_value:
+                raise ValueError(
+                    "No baseline value was provided to the class and a baseline evaluation was called. Either set a baseline value or pass baseline_prediction=False to evaluate_predictions method."
+                )
+            evaluation_prediction = self.baseline_value
+        else:
+            evaluation_prediction = predictions
+
+        result_dict: Dict[str, float] = {}
+        # First test the predictions in the metric dictionary...
+        for name, metric in self.metric_dict.items():
+            if "f1" in name:
+                result_dict[name + "_macro"] = metric(
+                    full_setup.test_data.labels, evaluation_prediction, average="macro"
+                )
+                result_dict[name + "_weighted"] = metric(
+                    full_setup.test_data.labels, evaluation_prediction, average="micro"
+                )
+                result_dict[name + "_macro"] = metric(
+                    full_setup.test_data.labels,
+                    evaluation_prediction,
+                    average="weighted",
+                )
+            else:
+                result_dict[name] = metric(
+                    full_setup.test_data.labels, evaluation_prediction
+                )
+                print(f"\nThe {name} is: {result_dict[name]}")
+
+        if model:
+            RocCurveDisplay.from_estimator(
+                estimator=model,
+                X=full_setup.test_data.obs,
+                y=full_setup.test_data.lables,
+            )
+        return result_dict
+
+
+class RegressionExpirament(ExpiramentBase):
+    def __init__(
+        self, train_setup: MLSetup, test_setup: MLSetup, cv_split_count: int
+    ) -> None:
+        super().__init__(train_setup, test_setup, cv_split_count)
+        self.baseline_value = None
+        self.standard_metric = balanced_accuracy_score
+        self.metric_dict = {
+            "mse": mean_squared_error,
+            "mae": mean_absolute_error,
+        }
+
+    def process_data(self) -> ExperimentSetup:
+        """Perform the data processing here"""
+        raise NotImplementedError(
+            "Needs to be implemented by the child, case specific expirament class."
         )
 
-        print(f"\nThe balanced_accuracy is: {bal_acc}")
-        print(f"The F1 MICRO score is: {micro_f1}")
-        print(f"The F1 MACRO score is: {macro_f1}")
-        print(f"The F1 WEIGHTED score is: {weighted_f1}")
-        print(f"Confusion matrix is:\n {conf_mat}")
+    def evaluate_predictions(
+        self,
+        full_setup: ExperimentSetup,
+        predictions: Iterable,
+        baseline_prediction: bool = False,
+        model: Optional[Any] = None,
+    ) -> Dict[str, float]:
+        """Evaluate all predictions, and return the results in a dict"""
 
-        # ... then test the baseline if set.
-        if self.baseline_value:
-            baseline = [self.baseline_value] * len(predictions)
-
-            baseline_conf_mat = confusion_matrix(full_setup.test_data.labels, baseline)
-            baseline_bal_acc = balanced_accuracy_score(
-                full_setup.test_data.labels, baseline
-            )
-            baseline_macro_f1 = f1_score(
-                full_setup.test_data.labels, baseline, average="macro"
-            )
-            baseline_micro_f1 = f1_score(
-                full_setup.test_data.labels, baseline, average="micro"
-            )
-            baseline_weighted_f1 = f1_score(
-                full_setup.test_data.labels, baseline, average="weighted"
-            )
-
-            print(f"\n\nThe BASELINE balanced_accuracy is: {baseline_bal_acc}")
-            print(f"The BASELINE F1 MICRO score is: {baseline_micro_f1}")
-            print(f"The BASELINE F1 MACRO score is: {baseline_macro_f1}")
-            print(f"The BASELINE F1 WEIGHTED score is: {baseline_weighted_f1}")
-            print(f"BASELINE Confusion matrix is:\n {baseline_conf_mat}")
+        if baseline_prediction:
+            if not self.baseline_value:
+                raise ValueError(
+                    "No baseline value was provided to the class and a baseline evaluation was called. Either set a baseline value or pass baseline_prediction=False to evaluate_predictions method."
+                )
+            evaluation_prediction = self.baseline_value
         else:
-            logger.info(
-                "No baseline_value was set, and so no baseling evaluation performed. To perform a baseline evaluation set self.baseline_value to your baseline."
+            evaluation_prediction = predictions
+
+        result_dict: Dict[str, float] = {}
+        # First test the predictions in the metric dictionary...
+        for name, metric in self.metric_dict.items():
+            result_dict[name] = metric(
+                full_setup.test_data.labels, evaluation_prediction
             )
+            print(f"\nThe {name} is: {result_dict[name]}")
+        return result_dict
