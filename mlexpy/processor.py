@@ -1,5 +1,5 @@
 import pandas as pd
-from typing import List, Any, Union, Any, Optional
+from typing import List, Any, Union, Optional
 from joblib import dump, load
 from pathlib import Path
 import logging
@@ -70,7 +70,7 @@ class ProcessPipelineBase:
     def load_model(self, model_name: str, model: Optional[Any] = None) -> Any:
         """Given a model name, load it from storage."""
 
-        if hasattr(model, "load_model"):
+        if hasattr(model, "load_model") and model:
             # use the model's loading utilities -- specifically beneficial with xgboost
             logger.info(f"Found a load_model method in {model}")
             model_path = self.model_dir / f"model_name_{self.process_tag}.json"
