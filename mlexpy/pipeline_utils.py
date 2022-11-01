@@ -22,7 +22,7 @@ def get_stratified_train_test_data(
     random_state: np.random.RandomState,
     test_frac: float = 0.3,
 ) -> Tuple[MLSetup, MLSetup]:
-    """Perform some strucuted training and testing spliting."""
+    """Perform some strucuted training and testing spliting. Default to stratified splitting."""
 
     X_train, X_test, y_train, y_test = train_test_split(
         train_data,
