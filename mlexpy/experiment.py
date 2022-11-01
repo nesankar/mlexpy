@@ -1,6 +1,9 @@
 import numpy as np
 import logging
-from typing import Dict, Optional, Any, Iterable, Callable
+from joblib import dump, load
+import sys
+from pathlib import Path
+from typing import Dict, Optional, Any, Iterable, Callable, Union
 
 from sklearn.metrics import (
     balanced_accuracy_score,
@@ -20,6 +23,7 @@ from sklearn.model_selection import (
 )
 
 from mlexpy.pipeline_utils import MLSetup, ExperimentSetup, cv_report
+from mlexpy.utils import make_directory
 
 
 logging.basicConfig(level=logging.INFO)
@@ -33,7 +37,10 @@ class ExpiramentBase:
         train_setup: MLSetup,
         test_setup: MLSetup,
         cv_split_count: int = 5,
-        rnd_int=100,
+        rnd_int: int = 100,
+        model_dir: Optional[Union[str, Path]] = None,
+        model_storage_function: Optional[Callable] = None,
+        model_loading_function: Optional[Callable] = None,
     ) -> None:
         self.testing = test_setup
         self.training = train_setup
@@ -43,6 +50,42 @@ class ExpiramentBase:
         self.cv_split_count = cv_split_count
         self.metric_dict: Dict[str, Callable] = {}
         self.standard_metric = None
+
+        # Setup model io
+        if not model_storage_function:
+            logger.info(
+                "No model storage function provided. Using the default class method (joblib, or .store_model native method)."
+            )
+            self.store_model = self.default_store_model
+        else:
+            logger.info(f"Set the model storage funtion as: {model_storage_function}")
+            self.store_model = model_storage_function
+        if not model_loading_function:
+            logger.info(
+                "No model loading function provided. Using the default class method (joblib, or .load_model native method)."
+            )
+            self.load_model = self.default_load_model
+        else:
+            logger.info(f"Set the model loading funtion as: {model_loading_function}")
+            self.store_model = model_loading_function
+
+        if not model_dir:
+            logger.info(
+                f"No model location provided. Creading a .models/ at: {sys.path[-1]}"
+            )
+            self.model_dir = Path(sys.path[-1]) / ".models"
+        elif isinstance(model_dir, str):
+            logger.info(
+                f"setting the model path to {model_dir}. (Converting from string to pathlib.Path)"
+            )
+            self.model_dir = Path(model_dir)
+        else:
+            logger.info(
+                f"setting the model path to {model_dir}. (Converting from string to pathlib.Path)"
+            )
+            self.model_dir = model_dir
+        if not self.model_dir.is_dir():
+            make_directory(self.model_dir)
 
     def set_pipeline(self, feat_coor_thresh: float = 0.90, top_cols=0.5) -> None:
         """Reset the params of the pipeline"""
@@ -55,11 +98,10 @@ class ExpiramentBase:
         self,
         model: Any,
         full_setup: ExperimentSetup,
-        classify: bool,
         params: Optional[Dict[str, Any]] = None,
     ):
         if params:
-            model = self.cv_search(full_setup.train_data, model, params, classify)
+            model = self.cv_search(full_setup.train_data, model, params)
         else:
             logger.info("Performing standard model training.")
             model.fit(full_setup.train_data.obs, full_setup.train_data.labels)
@@ -92,7 +134,6 @@ class ExpiramentBase:
         data_setup: MLSetup,
         ml_model: Any,
         parameters: Dict[str, Any],
-        classify: bool = True,
         cv_model: str = "random_search",
         random_iterations: int = 5,
     ) -> Any:
@@ -137,13 +178,58 @@ class ExpiramentBase:
         """Add the provided metric to the metric_dict"""
         del self.metric_dict[name]
 
+    def default_store_model(self, model: Any, model_name: str) -> None:
+        """Given a calculated model, store it locally using joblib.
+        Longer term/other considerations can be found here: https://scikit-learn.org/stable/model_persistence.html
+        """
+        if hasattr(model, "save_model"):
+            # use the model's saving utilities, specifically beneficial wish xgboost. Can be beneficial here to use a json
+            logger.info(f"Found a save_model method in {model}")
+            model_path = self.model_dir / f"{model_name}.json"
+            model.save_model(model_path)
+        else:
+            logger.info(f"Saving the {model} model using joblib.")
+            model_path = self.model_dir / f"{model_name}.joblib"
+            dump(model, model_path)
+        logger.info(f"Dumped {model_name} to: {model_path}")
+
+    def default_load_model(self, model_name: str, model: Optional[Any] = None) -> Any:
+        """Given a model name, load it from storage."""
+
+        if hasattr(model, "load_model") and model:
+            # use the model's loading utilities -- specifically beneficial with xgboost
+            logger.info(f"Found a load_model method in {model}")
+            model_path = self.model_dir / f"{model_name}.json"
+            loaded_model = model.load_model(model_path)
+        else:
+            model_path = self.model_dir / f"{model_name}.joblib"
+            logger.info(f"Loading {model_name} from: {model_path}")
+            loaded_model = load(model_path)
+        logger.info(f"Retrieved {model_name} from: {model_path}")
+        return loaded_model
+
 
 class ClassifierExpirament(ExpiramentBase):
     def __init__(
-        self, train_setup: MLSetup, test_setup: MLSetup, cv_split_count: int
+        self,
+        train_setup: MLSetup,
+        test_setup: MLSetup,
+        cv_split_count: int,
+        rnd_int: int = 100,
+        model_tag: str = "",
+        model_storage_function: Optional[Callable] = None,
+        model_loading_function: Optional[Callable] = None,
     ) -> None:
-        super().__init__(train_setup, test_setup, cv_split_count)
-        self.baseline_value = None
+        super().__init__(
+            train_setup,
+            test_setup,
+            cv_split_count,
+            rnd_int,
+            model_tag,
+            model_storage_function,
+            model_loading_function,
+        )
+        self.baseline_value = None  # to be implemented in the child class
         self.standard_metric = balanced_accuracy_score
         self.metric_dict = {
             "f1_macro": f1_score,
@@ -243,9 +329,24 @@ class ClassifierExpirament(ExpiramentBase):
 
 class RegressionExpirament(ExpiramentBase):
     def __init__(
-        self, train_setup: MLSetup, test_setup: MLSetup, cv_split_count: int
+        self,
+        train_setup: MLSetup,
+        test_setup: MLSetup,
+        cv_split_count: int,
+        rnd_int: int = 100,
+        model_tag: str = "",
+        model_storage_function: Optional[Callable] = None,
+        model_loading_function: Optional[Callable] = None,
     ) -> None:
-        super().__init__(train_setup, test_setup, cv_split_count)
+        super().__init__(
+            train_setup,
+            test_setup,
+            cv_split_count,
+            rnd_int,
+            model_tag,
+            model_storage_function,
+            model_loading_function,
+        )
         self.baseline_value = None
         self.standard_metric = balanced_accuracy_score
         self.metric_dict = {
