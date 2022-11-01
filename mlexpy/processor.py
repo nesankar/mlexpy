@@ -1,5 +1,5 @@
 import pandas as pd
-from typing import List, Callable, Any, Union
+from typing import List, Any, Union, Any, Optional
 from joblib import dump, load
 from pathlib import Path
 import logging
@@ -19,7 +19,7 @@ class ProcessPipelineBase:
         """Instanciate the data processing pipeline. Note if for_training is True, then all models used are trained and stored, otherwise they are
         loaded from file using the process tag.
 
-        Note: No lanugage us provided here, so functionality is dependent on being inherited in to a child class
+        Note: No lanugage is provided here, so functionality is dependent on being inherited into a child class
         """
 
         self.process_tag = process_tag
@@ -53,19 +53,34 @@ class ProcessPipelineBase:
         self.series_assertion(labels)
         return self.label_encoder.transform(labels)
 
-    def store_model(self, model: Callable, model_name: str) -> None:
+    def store_model(self, model: Any, model_name: str) -> None:
         """Given a calculated model, store it locally using joblib.
         Longer term/other considerations can be found here: https://scikit-learn.org/stable/model_persistence.html
         """
-        model_path = self.model_dir / f"model_name_{self.process_tag}.joblib"
-        logger.info(f"Dumping {model_name} to: {model_path}")
-        dump(model, model_path)
+        if hasattr(model, "save_model"):
+            # use the model's saving utilities, specifically beneficial wish xgboost. Can be beneficial here to use a json
+            logger.info(f"Found a save_model method in {model}")
+            model_path = self.model_dir / f"model_name_{self.process_tag}.json"
+            model.save_model(model_path)
+        else:
+            logger.info(f"Saving the {model} model using joblib.")
+            dump(model, model_path)
+        logger.info(f"Dumped {model_name} to: {model_path}")
 
-    def load_model(self, model_name: str) -> Callable:
+    def load_model(self, model_name: str, model: Optional[Any] = None) -> Any:
         """Given a model name, load it from storage."""
-        model_path = self.model_dir / f"model_name_{self.process_tag}.joblib"
-        logger.info(f"Loading {model_name} from: {model_path}")
-        return load(model_path)
+
+        if hasattr(model, "load_model"):
+            # use the model's loading utilities -- specifically beneficial with xgboost
+            logger.info(f"Found a load_model method in {model}")
+            model_path = self.model_dir / f"model_name_{self.process_tag}.json"
+            loaded_model = model.load_model(model_path)
+        else:
+            model_path = self.model_dir / f"model_name_{self.process_tag}.joblib"
+            logger.info(f"Loading {model_name} from: {model_path}")
+            loaded_model = load(model_path)
+        logger.info(f"Retrieved {model_name} from: {model_path}")
+        return loaded_model
 
     def process_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """Perform here all steps of the data processing for feature engineering."""
@@ -82,3 +97,7 @@ class ProcessPipelineBase:
         self.dataframe_assertion(df)
         """Given the defined keep_cols list, drop all other columns"""
         return df[[keep_cols]]
+
+    def set_default_encoder(self, encoder: Any) -> None:
+        """Set the desired label encoder."""
+        self._default_label_encoder = encoder
