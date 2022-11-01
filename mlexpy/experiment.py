@@ -42,6 +42,7 @@ class ExpiramentBase:
         self.rnd = np.random.RandomState(rnd_int)
         self.cv_split_count = cv_split_count
         self.metric_dict: Dict[str, Callable] = {}
+        self.standard_metric = None
 
     def set_pipeline(self, feat_coor_thresh: float = 0.90, top_cols=0.5) -> None:
         """Reset the params of the pipeline"""
@@ -75,7 +76,6 @@ class ExpiramentBase:
         full_setup: ExperimentSetup,
         predictions: Iterable,
         baseline_prediction: bool = False,
-        model: Optional[Any] = None,
     ) -> Dict[str, float]:
         raise NotImplementedError("This needs to be implemented in the child class.")
 
@@ -100,16 +100,16 @@ class ExpiramentBase:
         If no GirdSearch model provided run random search
         """
 
-        if classify:
-            metric = "balanced_accuracy"
-        else:
-            metric = "mean_absolute_error"
+        if not self.standard_metric:
+            raise NotImplementedError(
+                "No standard_metric has been set. This is likely becuase the ExpiramentBase is being called, instead of being inherited. Try using the ClassifierExpirament or RegressionExpirament, or build a child class to inherit the ExpiramentBase."
+            )
 
         if cv_model == "grid_search":
             cv_search = GridSearchCV(
                 ml_model,
                 parameters,
-                scoring=metric,
+                scoring=self.standard_metric,
                 cv=self.cv_splits(self.cv_split_count),
                 n_jobs=1,
             )
@@ -118,7 +118,7 @@ class ExpiramentBase:
                 ml_model,
                 parameters,
                 n_iter=random_iterations,
-                scoring=metric,
+                scoring=self.standard_metric,
                 cv=self.cv_splits(self.cv_split_count),
                 verbose=2,
                 refit=True,
@@ -147,10 +147,10 @@ class ClassifierExpirament(ExpiramentBase):
         self.standard_metric = balanced_accuracy_score
         self.metric_dict = {
             "f1_macro": f1_score,
+            "balanced_accruacry": balanced_accuracy_score,
             "accuracy": accuracy_score,
             "confusion_matrix": confusion_matrix,
             "classification_report": classification_report,
-            "roc_score": roc_auc_score,
         }
 
     def process_data(self) -> ExperimentSetup:
@@ -164,7 +164,6 @@ class ClassifierExpirament(ExpiramentBase):
         full_setup: ExperimentSetup,
         predictions: Iterable,
         baseline_prediction: bool = False,
-        model: Optional[Any] = None,
     ) -> Dict[str, float]:
         """Evaluate all predictions, and return the results in a dict"""
 
@@ -184,10 +183,10 @@ class ClassifierExpirament(ExpiramentBase):
                 result_dict[name + "_macro"] = metric(
                     full_setup.test_data.labels, evaluation_prediction, average="macro"
                 )
-                result_dict[name + "_weighted"] = metric(
+                result_dict[name + "_micro"] = metric(
                     full_setup.test_data.labels, evaluation_prediction, average="micro"
                 )
-                result_dict[name + "_macro"] = metric(
+                result_dict[name + "_weighted"] = metric(
                     full_setup.test_data.labels,
                     evaluation_prediction,
                     average="weighted",
@@ -196,14 +195,49 @@ class ClassifierExpirament(ExpiramentBase):
                 result_dict[name] = metric(
                     full_setup.test_data.labels, evaluation_prediction
                 )
-                print(f"\nThe {name} is: {result_dict[name]}")
 
-        if model:
-            RocCurveDisplay.from_estimator(
-                estimator=model,
-                X=full_setup.test_data.obs,
-                y=full_setup.test_data.lables,
+        for name, score in result_dict.items():
+            print(f"\n\nThe {name} score is: \n {score}.")
+
+        return result_dict
+
+    def evaluate_roc_metrics(
+        self,
+        full_setup: ExperimentSetup,
+        model: Any,
+    ) -> Dict[str, float]:
+        """Perform any roc metric evaluation here. These require prediction probilites or confidence, thus are seperate
+        from more standand prediction value based metrics."""
+
+        probabilites = model.predict_proba(full_setup.test_data.obs)
+        result_dict: Dict[str, float] = {}
+        # Need to determine if using a multiclass or binary classication expirament
+        if len(set(full_setup.test_data.labels)) <= 2:
+            logger.info("Computing the binary AU ROC curve scores.")
+            # Then this is binary classiciation
+            result_dict["roc_auc_score"] = roc_auc_score(
+                y_true=full_setup.test_data.labels,
+                y_score=probabilites,
             )
+            print(f"""\nThe ROC AUC score is: {result_dict["roc_auc_score"]}""")
+        else:
+            logger.info("Computing the multi-class AU ROC curve scores.")
+            # We are doing multiclass classicition and need to use more parameteres to calcualte the roc
+            result_dict["roc_auc_score"] = roc_auc_score(
+                y_true=full_setup.test_data.labels,
+                y_score=probabilites,
+                average="weighted",
+                multi_class="ovo",
+            )
+            print(
+                f"""\nThe multi-class weighted ROC AUC score is: {result_dict["roc_auc_score"]}"""
+            )
+
+        RocCurveDisplay.from_estimator(
+            estimator=model,
+            X=full_setup.test_data.obs,
+            y=full_setup.test_data.lables,
+        )
         return result_dict
 
 
@@ -230,7 +264,6 @@ class RegressionExpirament(ExpiramentBase):
         full_setup: ExperimentSetup,
         predictions: Iterable,
         baseline_prediction: bool = False,
-        model: Optional[Any] = None,
     ) -> Dict[str, float]:
         """Evaluate all predictions, and return the results in a dict"""
 
