@@ -102,11 +102,14 @@ class ExpiramentBase:
         self,
         model: Any,
         full_setup: ExperimentSetup,
-        classify: bool,
         params: Optional[Dict[str, Any]] = None,
     ):
         if params:
-            model = self.cv_search(full_setup.train_data, model, params, classify)
+            model = self.cv_search(
+                full_setup.train_data,
+                model,
+                params,
+            )
         else:
             logger.info("Performing standard model training.")
             model.fit(full_setup.train_data.obs, full_setup.train_data.labels)
