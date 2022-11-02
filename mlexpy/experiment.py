@@ -41,6 +41,8 @@ class ExpiramentBase:
         model_dir: Optional[Union[str, Path]] = None,
         model_storage_function: Optional[Callable] = None,
         model_loading_function: Optional[Callable] = None,
+        model_tag: str = "_development",
+        process_tag: str = "_development",
     ) -> None:
         self.testing = test_setup
         self.training = train_setup
@@ -50,6 +52,8 @@ class ExpiramentBase:
         self.cv_split_count = cv_split_count
         self.metric_dict: Dict[str, Callable] = {}
         self.standard_metric = None
+        self.process_tag = process_tag
+        self.model_tag = model_tag
 
         # Setup model io
         if not model_storage_function:
@@ -73,17 +77,17 @@ class ExpiramentBase:
             logger.info(
                 f"No model location provided. Creading a .models/ at: {sys.path[-1]}"
             )
-            self.model_dir = Path(sys.path[-1]) / ".models"
+            self.model_dir = Path(sys.path[-1]) / ".models" / self.process_tag
         elif isinstance(model_dir, str):
             logger.info(
                 f"setting the model path to {model_dir}. (Converting from string to pathlib.Path)"
             )
-            self.model_dir = Path(model_dir)
+            self.model_dir = Path(model_dir) / self.process_tag
         else:
             logger.info(
                 f"setting the model path to {model_dir}. (Converting from string to pathlib.Path)"
             )
-            self.model_dir = model_dir
+            self.model_dir = model_dir / self.process_tag
         if not self.model_dir.is_dir():
             make_directory(self.model_dir)
 
@@ -98,10 +102,11 @@ class ExpiramentBase:
         self,
         model: Any,
         full_setup: ExperimentSetup,
+        classify: bool,
         params: Optional[Dict[str, Any]] = None,
     ):
         if params:
-            model = self.cv_search(full_setup.train_data, model, params)
+            model = self.cv_search(full_setup.train_data, model, params, classify)
         else:
             logger.info("Performing standard model training.")
             model.fit(full_setup.train_data.obs, full_setup.train_data.labels)
@@ -178,34 +183,35 @@ class ExpiramentBase:
         """Add the provided metric to the metric_dict"""
         del self.metric_dict[name]
 
-    def default_store_model(self, model: Any, model_name: str) -> None:
+    def default_store_model(self, model: Any) -> None:
         """Given a calculated model, store it locally using joblib.
         Longer term/other considerations can be found here: https://scikit-learn.org/stable/model_persistence.html
         """
         if hasattr(model, "save_model"):
             # use the model's saving utilities, specifically beneficial wish xgboost. Can be beneficial here to use a json
             logger.info(f"Found a save_model method in {model}")
-            model_path = self.model_dir / f"{model_name}.json"
+            model_path = self.model_dir / f"{self.model_tag}.json"
             model.save_model(model_path)
         else:
             logger.info(f"Saving the {model} model using joblib.")
-            model_path = self.model_dir / f"{model_name}.joblib"
+            model_path = self.model_dir / f"{self.model_tag}.joblib"
             dump(model, model_path)
-        logger.info(f"Dumped {model_name} to: {model_path}")
+        logger.info(f"Dumped {self.model_tag} to: {model_path}")
 
-    def default_load_model(self, model_name: str, model: Optional[Any] = None) -> Any:
+    def default_load_model(self, model: Optional[Any] = None) -> Any:
         """Given a model name, load it from storage."""
 
         if hasattr(model, "load_model") and model:
             # use the model's loading utilities -- specifically beneficial with xgboost
             logger.info(f"Found a load_model method in {model}")
-            model_path = self.model_dir / f"{model_name}.json"
+            model_path = self.model_dir / f"{self.model_tag}.json"
+            logger.info(f"Loading {self.model_tag} from: {model_path}")
             loaded_model = model.load_model(model_path)
         else:
-            model_path = self.model_dir / f"{model_name}.joblib"
-            logger.info(f"Loading {model_name} from: {model_path}")
+            model_path = self.model_dir / f"{self.model_tag}.joblib"
+            logger.info(f"Loading {self.model_tag} from: {model_path}")
             loaded_model = load(model_path)
-        logger.info(f"Retrieved {model_name} from: {model_path}")
+        logger.info(f"Retrieved {self.model_tag} from: {model_path}")
         return loaded_model
 
 
@@ -216,18 +222,22 @@ class ClassifierExpirament(ExpiramentBase):
         test_setup: MLSetup,
         cv_split_count: int,
         rnd_int: int = 100,
-        model_tag: str = "",
+        model_dir: Optional[Union[str, Path]] = None,
         model_storage_function: Optional[Callable] = None,
         model_loading_function: Optional[Callable] = None,
+        model_tag: str = "_development",
+        process_tag: str = "_development",
     ) -> None:
         super().__init__(
             train_setup,
             test_setup,
             cv_split_count,
             rnd_int,
-            model_tag,
+            model_dir,
             model_storage_function,
             model_loading_function,
+            model_tag,
+            process_tag,
         )
         self.baseline_value = None  # to be implemented in the child class
         self.standard_metric = balanced_accuracy_score

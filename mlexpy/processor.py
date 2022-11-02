@@ -1,7 +1,9 @@
+from lib2to3.pgen2.token import OP
 import pandas as pd
 from typing import List, Any, Union, Optional, Callable
 from joblib import dump, load
 import sys
+import pendulum
 from pathlib import Path
 import logging
 from sklearn.preprocessing import OrdinalEncoder
@@ -16,7 +18,6 @@ class ProcessPipelineBase:
     def __init__(
         self,
         process_tag: str = "_development",
-        model_tag: str = "_development",
         model_dir: Optional[Union[str, Path]] = None,
         model_storage_function: Optional[Callable] = None,
         model_loading_function: Optional[Callable] = None,
@@ -28,7 +29,6 @@ class ProcessPipelineBase:
         """
 
         self.process_tag = process_tag
-        self.model_tag = model_tag
         self.model_dir: Path = Path()
         self.columns_to_drop: List[str] = []
         self._default_label_encoder = OrdinalEncoder
@@ -57,17 +57,17 @@ class ProcessPipelineBase:
             logger.info(
                 f"No model location provided. Creading a .models/ at: {sys.path[-1]}"
             )
-            self.model_dir = Path(sys.path[-1]) / ".models"
+            self.model_dir = Path(sys.path[-1]) / ".models" / self.process_tag
         elif isinstance(model_dir, str):
             logger.info(
                 f"setting the model path to {model_dir}. (Converting from string to pathlib.Path)"
             )
-            self.model_dir = Path(model_dir)
+            self.model_dir = Path(model_dir) / self.process_tag
         else:
             logger.info(
                 f"setting the model path to {model_dir}. (Converting from string to pathlib.Path)"
             )
-            self.model_dir = model_dir
+            self.model_dir = model_dir / self.process_tag
         if not self.model_dir.is_dir():
             make_directory(self.model_dir)
 
@@ -95,34 +95,34 @@ class ProcessPipelineBase:
         self.series_assertion(labels)
         return self.label_encoder.transform(labels)
 
-    def default_store_model(self, model: Any) -> None:
+    def default_store_model(self, model: Any, model_tag: str) -> None:
         """Given a calculated model, store it locally using joblib.
         Longer term/other considerations can be found here: https://scikit-learn.org/stable/model_persistence.html
         """
         if hasattr(model, "save_model"):
             # use the model's saving utilities, specifically beneficial wish xgboost. Can be beneficial here to use a json
             logger.info(f"Found a save_model method in {model}")
-            model_path = self.model_dir / f"{self.model_tag}_{self.process_tag}.json"
+            model_path = self.model_dir / f"{model_tag}_{self.process_tag}.json"
             model.save_model(model_path)
         else:
             logger.info(f"Saving the {model} model using joblib.")
-            model_path = self.model_dir / f"{self.model_tag}_{self.process_tag}.joblib"
+            model_path = self.model_dir / f"{model_tag}_{self.process_tag}.joblib"
             dump(model, model_path)
-        logger.info(f"Dumped {self.model_tag} to: {model_path}")
+        logger.info(f"Dumped {model_tag} to: {model_path}")
 
-    def default_load_model(self, model: Optional[Any] = None) -> Any:
+    def default_load_model(self, model_tag: str, model: Optional[Any] = None) -> Any:
         """Given a model name, load it from storage."""
 
         if hasattr(model, "load_model") and model:
             # use the model's loading utilities -- specifically beneficial with xgboost
             logger.info(f"Found a load_model method in {model}")
-            model_path = self.model_dir / f"{self.model_tag}_{self.process_tag}.json"
+            model_path = self.model_dir / f"{model_tag}_{self.process_tag}.json"
             loaded_model = model.load_model(model_path)
         else:
-            model_path = self.model_dir / f"{self.model_tag}_{self.process_tag}.joblib"
-            logger.info(f"Loading {self.model_tag} from: {model_path}")
+            model_path = self.model_dir / f"{model_tag}_{self.process_tag}.joblib"
+            logger.info(f"Loading {model_tag} from: {model_path}")
             loaded_model = load(model_path)
-        logger.info(f"Retrieved {self.model_tag} from: {model_path}")
+        logger.info(f"Retrieved {model_tag} from: {model_path}")
         return loaded_model
 
     def process_data(self, df: pd.DataFrame) -> pd.DataFrame:
