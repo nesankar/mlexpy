@@ -4,8 +4,10 @@ from joblib import dump, load
 import sys
 from pathlib import Path
 import logging
-from sklearn.preprocessing import OrdinalEncoder
+from sklearn.preprocessing import OrdinalEncoder, StandardScaler, MinMaxScaler
+from sklearn.feature_selection import SelectKBest
 from mlexpy.utils import df_assertion, series_assertion, make_directory
+from src.defaultordereddict import DefaultOrderedDict
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -32,6 +34,7 @@ class ProcessPipelineBase:
         self._default_label_encoder = OrdinalEncoder
         self.dataframe_assertion = df_assertion
         self.series_assertion = series_assertion
+        self.column_transformations = DefaultOrderedDict(lambda: [])
 
         # Set up any model IO
         if not model_storage_function:
@@ -69,11 +72,18 @@ class ProcessPipelineBase:
         if not self.model_dir.is_dir():
             make_directory(self.model_dir)
 
+    @staticmethod
+    def fit_check(model: Any) -> None:
+        if hasattr(model, "fit"):
+            logger.warn(
+                f"The provided {model} model has a .fit() method. Make sure to store the resulting fit method for proper train test seperation."
+            )
+
     @classmethod
     def prediction_call(
         cls,
         record: Union[pd.DataFrame, pd.Series],
-        process_tag: str = "_production",
+        process_tag: str = "_prediction",
     ) -> pd.DataFrame:
         raise NotImplementedError("This needs to be implemented in the child class.")
 
@@ -142,3 +152,72 @@ class ProcessPipelineBase:
     def set_default_encoder(self, encoder: Any) -> None:
         """Set the desired label encoder."""
         self._default_label_encoder = encoder
+
+    def get_best_cols(self, df: pd.DataFrame, labels: pd.Series) -> None:
+        """Compute the most informative columns, and then cache the rest in the to drop columns."""
+
+        if self.best_col_count < 1:
+            # This means the intention was something fractional
+            col_count = int(len(df.columns) * self.best_col_count)
+        else:
+            col_count = self.best_col_count
+
+        selector = SelectKBest(k=col_count)
+        selector = selector.fit(df, labels)
+
+        self.columns_to_drop.update(
+            [col for col in df.columns if col not in selector.get_feature_names_out()]
+        )
+
+    def scale_features(
+        self, feature_data: pd.Series, standard_scaling: bool = True
+    ) -> pd.Series:
+        """Perform the feature scaling here. If this a prediction method, then load and fit."""
+
+        if standard_scaling:
+            logger.info(f"Fitting a standard scaler to {feature_data.name}.")
+            scaler = StandardScaler()
+        else:
+            logger.info(f"Fitting a minmax scaler to {feature_data.name}.")
+            scaler = MinMaxScaler()
+
+        scaler.fit(feature_data)
+        # Store the fit scaler to apply to the testing data.
+        self.column_transformations[feature_data.name].append(scaler)
+
+        return scaler.transform(feature_data)
+
+    def fit_model_based_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Here do all feature engineering that requires models to be fit to the data, such as, scaling, on-hot-encoding,
+        PCA, etc.
+
+        The goal is to arange these in a manner that makes them easily reproduceable, easily understandable, and persistable.
+
+        Each process performed here is stored in the column_transofrmations dictionary, with ordering with the default key a list.
+        The processes in this dictionary will be passed over IN ORDER on the test df to generate the test dataset.
+        """
+        raise NotImplementedError("This needs to be implemented in the child class.")
+
+    def transform_model_based_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Here apply all model based feature enginnering models, previously fit with the fit_model_based_features method.
+
+        The goal is to simply call this method, and perform a single, ordered set of operations on a dataset to provide
+        feature engineering with models and no risk of test set training, AND the ability to load a previously trained
+        feature model.
+        """
+
+        result_df = pd.DataFrame(index=df.index)
+
+        for column, transformations in self.column_transformations.items():
+            if column not in df.columns:
+                logger.info(
+                    f"{column} NOT found in the provided dataframe. Skipping {transformations}."
+                )
+                continue
+            for i, transformation in enumerate(transformations):
+                logger.info(f"Applying the {transformation} to {column}")
+                result_df[
+                    f"{column}_{transformation.__str__().lower()}"
+                ] = transformation.transform(df[column].values.reshape(-1, 1))
+
+        return pd.concat([df, result_df], index=1)
