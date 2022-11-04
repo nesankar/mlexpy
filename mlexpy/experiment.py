@@ -245,7 +245,7 @@ class ClassifierExpirament(ExpiramentBase):
         self.baseline_value = None  # to be implemented in the child class
         self.standard_metric = balanced_accuracy_score
         self.metric_dict = {
-            "f1_macro": f1_score,
+            "f1": f1_score,
             "balanced_accruacry": balanced_accuracy_score,
             "accuracy": accuracy_score,
             "confusion_matrix": confusion_matrix,
