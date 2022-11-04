@@ -244,11 +244,11 @@ class ProcessPipelineBase:
                 )
                 idx += 1
 
-    def load_feature_based_models(self) -> None:
+    def load_feature_based_models(self) -> DefaultOrderedDict[str, List[Any]]:
         """Given the process tag used to instanciate the class, load all models used for feature generation."""
 
         # First, get all files
-        all_files = glob(f"{self.model_dir}/**")
+        all_files = glob(f"{self.model_dir}/**/**")
 
         # Next extract the ordering information from each model file name
         file_ordering = []
