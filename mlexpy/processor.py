@@ -3,6 +3,7 @@ from typing import List, Any, Union, Optional, Callable
 from joblib import dump, load
 import sys
 from pathlib import Path
+from glob import glob
 import logging
 from sklearn.preprocessing import OrdinalEncoder, StandardScaler, MinMaxScaler
 from sklearn.feature_selection import SelectKBest
@@ -169,7 +170,7 @@ class ProcessPipelineBase:
             [col for col in df.columns if col not in selector.get_feature_names_out()]
         )
 
-    def scale_features(
+    def fit_scaler(
         self, feature_data: pd.Series, standard_scaling: bool = True
     ) -> pd.Series:
         """Perform the feature scaling here. If this a prediction method, then load and fit."""
@@ -181,11 +182,9 @@ class ProcessPipelineBase:
             logger.info(f"Fitting a minmax scaler to {feature_data.name}.")
             scaler = MinMaxScaler()
 
-        scaler.fit(feature_data)
+        scaler.fit(feature_data.values.reshape(-1, 1))
         # Store the fit scaler to apply to the testing data.
         self.column_transformations[feature_data.name].append(scaler)
-
-        return scaler.transform(feature_data)
 
     def fit_model_based_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """Here do all feature engineering that requires models to be fit to the data, such as, scaling, on-hot-encoding,
@@ -220,4 +219,49 @@ class ProcessPipelineBase:
                     f"{column}_{transformation.__str__().lower()}"
                 ] = transformation.transform(df[column].values.reshape(-1, 1))
 
-        return pd.concat([df, result_df], index=1)
+        return pd.concat([df, result_df], axis=1)
+
+    def dump_feature_based_models(self) -> None:
+        """Given the ordered dict of the model based features, dump each model, with the name of the model in the column_transormations_dict.
+
+        Use a process/indexed-column_name/indexed-model strucutre inorder to maintain the ordering.
+        """
+
+        # Iterate through the columns_transformer dict, storing each model and column. Use a method wide indexer
+        idx = 0
+        for column, transformations in self.column_transformations.items():
+            column_process_model_dir = self.model_dir / column
+            if not column_process_model_dir.is_dir():
+                make_directory(column_process_model_dir)
+            logger.info(
+                f"Dumping {len(transformations)} models to {column_process_model_dir}"
+            )
+            for transformation in transformations:
+                transformation_name = transformation.__str__().lower()
+                dump(
+                    transformation,
+                    column_process_model_dir / f"{idx}_{transformation_name}.joblib",
+                )
+                idx += 1
+
+    def load_feature_based_models(self) -> None:
+        """Given the process tag used to instanciate the class, load all models used for feature generation."""
+
+        # First, get all files
+        all_files = glob(f"{self.model_dir}/**")
+
+        # Next extract the ordering information from each model file name
+        file_ordering = []
+        for file in all_files:
+            file_pairing = [file, file.split("/")[-1].split("_")[0]]
+            file_ordering.append(file_pairing)
+
+        # Now, sort this list by the index value (the second item in each sub-list)
+        file_ordering.sort(key=lambda entry: entry[1])
+
+        # Finally, iterate through this file ordering, load the models and store correctly in the column_transformations_dict
+        for file_pair in file_ordering:
+            file = file_pair[0]
+            column_name = file.split("/")[-2]
+            model = load(file)
+            self.column_transformations[column_name].append(model)
