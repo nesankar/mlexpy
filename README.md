@@ -17,10 +17,12 @@ The core goal is to leverage fairly basic, yet powerful, and clear data strucutr
 
 2. `mlexpy` leverages an OOP framework, while this may be less intuitive for some practitioners, the benefits of becoming familiar with some OOP outweigh its learning curve.
 
-3. The three junctions of the ML development pipeline are (1) the data, (2) the processing, (3) the prediction. Thus, each one of these steps is meant to be identically reproduceable independent of each other (to the extent possible). 
+3. The three junctions of the ML development pipeline are (1) the data -> (2) the processing -> (3) the predictions. Thus, each one of these steps is meant to be identically reproduceable independent of each other (to the extent possible). 
     - For example: I have an update to my dataset -- I would like to know **exactly** how a previously developed and stored pipeline and model will perform on this new dataset.
     - I have a new model, I would like to know how it performs given **exactly** the same data and processing steps.
     - I would like to try computing a feature differently in the processing steps. However, to compare to previous models, I would like to use **exactly** the same data, **exactly** the same process for the other features, and **exactly** the same model and training steps (ex. the same Cross Validation, parameter serching, and tuning).
+
+    - Note: If the used features change, or the provided features change in all downstream process must change too in order to accomidate the structural change in the process, and no-longer can **exact** comparisons of a single component (data, process, model) be compared.
 
 
 Note: Currently, `mlexpy` _only_ provides tooling for supervised learning.
