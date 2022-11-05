@@ -21,7 +21,7 @@ def get_stratified_train_test_data(
     label_data: Iterable,
     random_state: np.random.RandomState,
     test_frac: float = 0.3,
-) -> Tuple[MLSetup, MLSetup]:
+) -> ExperimentSetup:
     """Perform some strucuted training and testing spliting. Default to stratified splitting."""
 
     X_train, X_test, y_train, y_test = train_test_split(
@@ -32,7 +32,7 @@ def get_stratified_train_test_data(
         random_state=random_state,
     )
 
-    return MLSetup(X_train, y_train), MLSetup(X_test, y_test)
+    return ExperimentSetup(MLSetup(X_train, y_train), MLSetup(X_test, y_test))
 
 
 def cv_report(results: Dict[str, Any], n_top: int = 5) -> None:
