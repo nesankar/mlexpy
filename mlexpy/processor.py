@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from glob import glob
 import logging
-from sklearn.preprocessing import OrdinalEncoder, StandardScaler, MinMaxScaler
+from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler
 from sklearn.feature_selection import SelectKBest
 from mlexpy.utils import df_assertion, series_assertion, make_directory
 from src.defaultordereddict import DefaultOrderedDict
@@ -32,7 +32,7 @@ class ProcessPipelineBase:
         self.process_tag = process_tag
         self.model_dir: Path = Path()
         self.columns_to_drop: List[str] = []
-        self._default_label_encoder = OrdinalEncoder
+        self._default_label_encoder = LabelEncoder
         self.dataframe_assertion = df_assertion
         self.series_assertion = series_assertion
         self.column_transformations = DefaultOrderedDict(lambda: [])
@@ -97,12 +97,13 @@ class ProcessPipelineBase:
 
     def fit_label_encoder(self, all_labels: pd.Series) -> None:
         self.series_assertion(all_labels)
-        self.label_encoder.fit(all_labels)
+        self.label_encoder.fit(all_labels.values)
         return None
 
     def encode_labels(self, labels: pd.Series) -> pd.Series:
         self.series_assertion(labels)
-        return self.label_encoder.transform(labels)
+        coded_labels = self.label_encoder.transform(labels.values)
+        return pd.Series(coded_labels, name=labels.name)
 
     def default_store_model(self, model: Any, model_tag: str) -> None:
         """Given a calculated model, store it locally using joblib.
@@ -134,7 +135,7 @@ class ProcessPipelineBase:
         logger.info(f"Retrieved {model_tag} from: {model_path}")
         return loaded_model
 
-    def process_data(self, df: pd.DataFrame) -> pd.DataFrame:
+    def process_data(self, df: pd.DataFrame, training: bool = True) -> pd.DataFrame:
         """Perform here all steps of the data processing for feature engineering."""
         raise NotImplementedError("This needs to be implemented in the child class.")
 
@@ -186,7 +187,7 @@ class ProcessPipelineBase:
         # Store the fit scaler to apply to the testing data.
         self.column_transformations[feature_data.name].append(scaler)
 
-    def fit_model_based_features(self, df: pd.DataFrame) -> pd.DataFrame:
+    def fit_model_based_features(self, df: pd.DataFrame) -> None:
         """Here do all feature engineering that requires models to be fit to the data, such as, scaling, on-hot-encoding,
         PCA, etc.
 
