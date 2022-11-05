@@ -296,7 +296,7 @@ class ClassifierExpirament(ExpiramentBase):
                 )
 
         for name, score in result_dict.items():
-            print(f"\n\nThe {name} score is: \n {score}.")
+            print(f"\nThe {name} score is: \n {score}.")
 
         return result_dict
 
