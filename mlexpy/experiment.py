@@ -95,7 +95,7 @@ class ExpiramentBase:
         """Reset the params of the pipeline"""
         raise NotImplementedError("This needs to be implemented in the child class.")
 
-    def process_data(self) -> ExperimentSetup:
+    def process_data(self, process_method: Optional[str] = None) -> ExperimentSetup:
         raise NotImplementedError("This needs to be implemented in the child class.")
 
     def train_model(
@@ -218,7 +218,7 @@ class ExpiramentBase:
         return loaded_model
 
 
-class ClassifierExpirament(ExpiramentBase):
+class ClassifierExpiramentBase(ExpiramentBase):
     def __init__(
         self,
         train_setup: MLSetup,
@@ -340,7 +340,7 @@ class ClassifierExpirament(ExpiramentBase):
         return result_dict
 
 
-class RegressionExpirament(ExpiramentBase):
+class RegressionExpiramentBase(ExpiramentBase):
     def __init__(
         self,
         train_setup: MLSetup,
