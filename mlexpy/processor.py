@@ -147,19 +147,20 @@ class ProcessPipelineBase:
         """Set the desired label encoder."""
         self._default_label_encoder = encoder
 
-    def get_best_cols(self, df: pd.DataFrame, labels: pd.Series) -> None:
+    def get_best_cols(
+        self, df: pd.DataFrame, labels: pd.Series, col_count: Optional[int] = None
+    ) -> None:
         """Compute the most informative columns, and then cache the rest in the to drop columns."""
 
-        if self.best_col_count < 1:
-            # This means the intention was something fractional
-            col_count = int(len(df.columns) * self.best_col_count)
-        else:
-            col_count = self.best_col_count
+        # If no col_count, default to the best 50%
+        if not col_count:
+            total_columns = len(df.columns)
+            col_count = min(total_columns, total_columns // 2)
 
         selector = SelectKBest(k=col_count)
         selector = selector.fit(df, labels)
 
-        self.columns_to_drop.update(
+        self.columns_to_drop.extend(
             [col for col in df.columns if col not in selector.get_feature_names_out()]
         )
 

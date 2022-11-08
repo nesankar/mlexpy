@@ -91,7 +91,7 @@ class ExpiramentBase:
         if not self.model_dir.is_dir():
             make_directory(self.model_dir)
 
-    def process_data(self, process_method: Optional[str] = None) -> ExperimentSetup:
+    def process_data(self, process_method_str: str = "process_data") -> ExperimentSetup:
         raise NotImplementedError("This needs to be implemented in the child class.")
 
     def train_model(
@@ -248,12 +248,6 @@ class ClassifierExpiramentBase(ExpiramentBase):
             "classification_report": classification_report,
         }
 
-    def process_data(self) -> ExperimentSetup:
-        """Perform the data processing here"""
-        raise NotImplementedError(
-            "Needs to be implemented by the child, case specific expirament class."
-        )
-
     def evaluate_predictions(
         self,
         full_setup: ExperimentSetup,
@@ -362,12 +356,6 @@ class RegressionExpiramentBase(ExpiramentBase):
             "mse": mean_squared_error,
             "mae": mean_absolute_error,
         }
-
-    def process_data(self) -> ExperimentSetup:
-        """Perform the data processing here"""
-        raise NotImplementedError(
-            "Needs to be implemented by the child, case specific expirament class."
-        )
 
     def evaluate_predictions(
         self,

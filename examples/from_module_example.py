@@ -124,7 +124,7 @@ class IrisExpirament(experiment.ClassifierExpiramentBase):
         )
 
     def process_data(
-        self, process_method_str: Optional[Callable] = "process_data"
+        self, process_method_str: str = "process_data"
     ) -> pipeline_utils.ExperimentSetup:
 
         processor = IrisPipeline(process_tag=self.process_tag, model_dir=self.model_dir)

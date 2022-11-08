@@ -1,6 +1,7 @@
 import numpy as np
+import pandas as pd
 import logging
-from typing import Tuple, Any, Iterable, Dict
+from typing import Any, Dict
 from collections import namedtuple
 
 from sklearn.model_selection import train_test_split
@@ -17,8 +18,8 @@ ExperimentSetup = namedtuple("ExperimentSetup", ["train_data", "test_data"])
 
 
 def get_stratified_train_test_data(
-    train_data: Iterable,
-    label_data: Iterable,
+    train_data: pd.DataFrame,
+    label_data: pd.Series,
     random_state: np.random.RandomState,
     test_frac: float = 0.3,
 ) -> ExperimentSetup:
