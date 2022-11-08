@@ -23,10 +23,10 @@ class ProcessPipelineBase:
         model_storage_function: Optional[Callable] = None,
         model_loading_function: Optional[Callable] = None,
     ) -> None:
-        """Instanciate the data processing pipeline. Note if for_training is True, then all models used are trained and stored, otherwise they are
+        """Instantiate the data processing pipeline. Note if for_training is True, then all models used are trained and stored, otherwise they are
         loaded from file using the process tag.
 
-        Note: No lanugage is provided here, so functionality is dependent on being inherited into a child class
+        Note: No language is provided here, so functionality is dependent on being inherited into a child class
         """
 
         self.process_tag = process_tag
@@ -44,7 +44,7 @@ class ProcessPipelineBase:
             )
             self.store_model = self.default_store_model
         else:
-            logger.info(f"Set the model storage funtion as: {model_storage_function}")
+            logger.info(f"Set the model storage function as: {model_storage_function}")
             self.store_model = model_storage_function
         if not model_loading_function:
             logger.info(
@@ -52,12 +52,12 @@ class ProcessPipelineBase:
             )
             self.load_model = self.default_load_model
         else:
-            logger.info(f"Set the model loading funtion as: {model_loading_function}")
+            logger.info(f"Set the model loading function as: {model_loading_function}")
             self.store_model = model_loading_function
 
         if not model_dir:
             logger.info(
-                f"No model location provided. Creading a .models/ at: {sys.path[-1]}"
+                f"No model location provided. Creating a .models/ at: {sys.path[-1]}"
             )
             self.model_dir = Path(sys.path[-1]) / ".models" / self.process_tag
         elif isinstance(model_dir, str):
@@ -77,7 +77,7 @@ class ProcessPipelineBase:
     def fit_check(model: Any) -> None:
         if hasattr(model, "fit"):
             logger.warn(
-                f"The provided {model} model has a .fit() method. Make sure to store the resulting fit method for proper train test seperation."
+                f"The provided {model} model has a .fit() method. Make sure to store the resulting fit method for proper train test separation."
             )
 
     @property
@@ -135,8 +135,8 @@ class ProcessPipelineBase:
         """Simply drop the columns that have been cashed in the class."""
         self.dataframe_assertion(df)
         # First do an intersection of the df's columns and those to drop.
-        droping_cols = [col for col in df.columns if col in self.columns_to_drop]
-        return df.drop(columns=droping_cols)
+        dropping_cols = [col for col in df.columns if col in self.columns_to_drop]
+        return df.drop(columns=dropping_cols)
 
     def keep_columns(self, df: pd.DataFrame, keep_cols: List[str]) -> pd.DataFrame:
         self.dataframe_assertion(df)
@@ -184,15 +184,15 @@ class ProcessPipelineBase:
         """Here do all feature engineering that requires models to be fit to the data, such as, scaling, on-hot-encoding,
         PCA, etc.
 
-        The goal is to arange these in a manner that makes them easily reproduceable, easily understandable, and persistable.
+        The goal is to arrange these in a manner that makes them easily reproducible, easily understandable, and persist-able.
 
-        Each process performed here is stored in the column_transofrmations dictionary, with ordering with the default key a list.
+        Each process performed here is stored in the column_transformations dictionary, with ordering with the default key a list.
         The processes in this dictionary will be passed over IN ORDER on the test df to generate the test dataset.
         """
         raise NotImplementedError("This needs to be implemented in the child class.")
 
     def transform_model_based_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Here apply all model based feature enginnering models, previously fit with the fit_model_based_features method.
+        """Here apply all model based feature engineering models, previously fit with the fit_model_based_features method.
 
         The goal is to simply call this method, and perform a single, ordered set of operations on a dataset to provide
         feature engineering with models and no risk of test set training, AND the ability to load a previously trained
@@ -216,9 +216,9 @@ class ProcessPipelineBase:
         return pd.concat([df, result_df], axis=1)
 
     def dump_feature_based_models(self) -> None:
-        """Given the ordered dict of the model based features, dump each model, with the name of the model in the column_transormations_dict.
+        """Given the ordered dict of the model based features, dump each model, with the name of the model in the column_transformation dict.
 
-        Use a process/indexed-column_name/indexed-model strucutre inorder to maintain the ordering.
+        Use a process/indexed-column_name/indexed-model structure in-order to maintain the ordering.
         """
 
         # Iterate through the columns_transformer dict, storing each model and column. Use a method wide indexer
@@ -239,7 +239,7 @@ class ProcessPipelineBase:
                 idx += 1
 
     def load_feature_based_models(self) -> DefaultOrderedDict[str, List[Any]]:
-        """Given the process tag used to instanciate the class, load all models used for feature generation."""
+        """Given the process tag used to instantiate the class, load all models used for feature generation."""
 
         # First, get all files
         all_files = glob(f"{self.model_dir}/**/**")

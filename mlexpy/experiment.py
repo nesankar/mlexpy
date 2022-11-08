@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-class ExpiramentBase:
+class ExperimentBase:
     def __init__(
         self,
         train_setup: MLSetup,
@@ -62,7 +62,7 @@ class ExpiramentBase:
             )
             self.store_model = self.default_store_model
         else:
-            logger.info(f"Set the model storage funtion as: {model_storage_function}")
+            logger.info(f"Set the model storage function as: {model_storage_function}")
             self.store_model = model_storage_function
         if not model_loading_function:
             logger.info(
@@ -70,12 +70,12 @@ class ExpiramentBase:
             )
             self.load_model = self.default_load_model
         else:
-            logger.info(f"Set the model loading funtion as: {model_loading_function}")
+            logger.info(f"Set the model loading function as: {model_loading_function}")
             self.store_model = model_loading_function
 
         if not model_dir:
             logger.info(
-                f"No model location provided. Creading a .models/ at: {sys.path[-1]}"
+                f"No model location provided. Creating a .models/ at: {sys.path[-1]}"
             )
             self.model_dir = Path(sys.path[-1]) / ".models" / self.process_tag
         elif isinstance(model_dir, str):
@@ -147,7 +147,7 @@ class ExpiramentBase:
 
         if not self.standard_metric:
             raise NotImplementedError(
-                "No standard_metric has been set. This is likely becuase the ExpiramentBase is being called, instead of being inherited. Try using the ClassifierExpirament or RegressionExpirament, or build a child class to inherit the ExpiramentBase."
+                "No standard_metric has been set. This is likely because the ExperimentBase is being called, instead of being inherited. Try using the ClassifierExpirament or RegressionExpirament, or build a child class to inherit the ExpiramentBase."
             )
 
         if cv_model == "grid_search":
@@ -169,7 +169,7 @@ class ExpiramentBase:
                 refit=True,
                 n_jobs=1,
             )
-        logger.info(f"Begining CV search using {cv_model} ...")
+        logger.info(f"Beginning CV search using {cv_model} ...")
         cv_search.fit(data_setup.obs, data_setup.labels)
         logger.info(cv_report(cv_search.cv_results_))
         return cv_search.best_estimator_
@@ -214,7 +214,7 @@ class ExpiramentBase:
         return loaded_model
 
 
-class ClassifierExpiramentBase(ExpiramentBase):
+class ClassifierExperimentBase(ExperimentBase):
     def __init__(
         self,
         train_setup: MLSetup,
@@ -242,7 +242,7 @@ class ClassifierExpiramentBase(ExpiramentBase):
         self.standard_metric = balanced_accuracy_score
         self.metric_dict = {
             "f1": f1_score,
-            "balanced_accruacry": balanced_accuracy_score,
+            "balanced_accuracy": balanced_accuracy_score,
             "accuracy": accuracy_score,
             "confusion_matrix": confusion_matrix,
             "classification_report": classification_report,
@@ -295,26 +295,26 @@ class ClassifierExpiramentBase(ExpiramentBase):
         full_setup: ExperimentSetup,
         model: Any,
     ) -> Dict[str, float]:
-        """Perform any roc metric evaluation here. These require prediction probilites or confidence, thus are seperate
-        from more standand prediction value based metrics."""
+        """Perform any roc metric evaluation here. These require prediction probabilities or confidence, thus are separate
+        from more standard prediction value based metrics."""
 
-        probabilites = model.predict_proba(full_setup.test_data.obs)
+        probabilities = model.predict_proba(full_setup.test_data.obs)
         result_dict: Dict[str, float] = {}
-        # Need to determine if using a multiclass or binary classication expirament
+        # Need to determine if using a multiclass or binary classification experiment
         if len(set(full_setup.test_data.labels)) <= 2:
             logger.info("Computing the binary AU ROC curve scores.")
-            # Then this is binary classiciation
+            # Then this is binary classification
             result_dict["roc_auc_score"] = roc_auc_score(
                 y_true=full_setup.test_data.labels,
-                y_score=probabilites,
+                y_score=probabilities,
             )
             print(f"""\nThe ROC AUC score is: {result_dict["roc_auc_score"]}""")
         else:
             logger.info("Computing the multi-class AU ROC curve scores.")
-            # We are doing multiclass classicition and need to use more parameteres to calcualte the roc
+            # We are doing multiclass classification and need to use more parameters to calculate the roc
             result_dict["roc_auc_score"] = roc_auc_score(
                 y_true=full_setup.test_data.labels,
-                y_score=probabilites,
+                y_score=probabilities,
                 average="weighted",
                 multi_class="ovo",
             )
@@ -325,12 +325,12 @@ class ClassifierExpiramentBase(ExpiramentBase):
         RocCurveDisplay.from_estimator(
             estimator=model,
             X=full_setup.test_data.obs,
-            y=full_setup.test_data.lables,
+            y=full_setup.test_data.labels,
         )
         return result_dict
 
 
-class RegressionExpiramentBase(ExpiramentBase):
+class RegressionExperimentBase(ExperimentBase):
     def __init__(
         self,
         train_setup: MLSetup,

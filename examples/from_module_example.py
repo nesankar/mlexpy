@@ -18,7 +18,7 @@ class IrisPipeline(processor.ProcessPipelineBase):
 
     # Now -- define the .process_data() method.
     def process_data(self, df: pd.DataFrame, training: bool = True) -> pd.DataFrame:
-        """All data prrocessing that is to be performed for the iris classification task."""
+        """All data processing that is to be performed for the iris classification task."""
 
         # Do a copy of the passed df
         df = df.copy()
@@ -29,7 +29,7 @@ class IrisPipeline(processor.ProcessPipelineBase):
         for object in ["petal", "sepal"]:
             df[f"{object}_area"] = df[f"{object}_length"] * df[f"{object}_width"]
 
-        # Now perform the training / testing dependent feature processsing. This is why a `training` boolean is passed.
+        # Now perform the training / testing dependent feature processing. This is why a `training` boolean is passed.
         if training:
             # Now FIT all of the model based features...
             self.fit_model_based_features(df)
@@ -39,8 +39,8 @@ class IrisPipeline(processor.ProcessPipelineBase):
             # Here we can ONLY apply the transformation
             model_features = self.transform_model_based_features(df)
 
-        # Imagine we only want to use the scaled features for prediction, then we retrieve only the scaled colums.
-        # (This is easy becuase the columns are renamed with the model name in the column name)
+        # Imagine we only want to use the scaled features for prediction, then we retrieve only the scaled columns.
+        # (This is easy because the columns are renamed with the model name in the column name)
         prediction_df = model_features[
             [col for col in model_features if "standardscaler" in col]
         ]
@@ -51,7 +51,7 @@ class IrisPipeline(processor.ProcessPipelineBase):
     def process_data_keep_all_columns(
         self, df: pd.DataFrame, training: bool = True
     ) -> pd.DataFrame:
-        """All data prrocessing that is to be performed for the iris classification task."""
+        """All data processing that is to be performed for the iris classification task."""
 
         # Do a copy of the passed df
         df = df.copy()
@@ -62,7 +62,7 @@ class IrisPipeline(processor.ProcessPipelineBase):
         for object in ["petal", "sepal"]:
             df[f"{object}_area"] = df[f"{object}_length"] * df[f"{object}_width"]
 
-        # Now perform the training / testing dependent feature processsing. This is why a `training` boolean is passed.
+        # Now perform the training / testing dependent feature processing. This is why a `training` boolean is passed.
         if training:
             # Now FIT all of the model based features...
             self.fit_model_based_features(df)
@@ -75,8 +75,8 @@ class IrisPipeline(processor.ProcessPipelineBase):
         all_feature_df = model_features
 
         # --- Part removed for illustrative example -----
-        # # Imagine we only want to use the scaled features for prediction, then we retrieve only the scaled colums.
-        # # (This is easy becuase the columns are renamed with the model name in the column name)
+        # # Imagine we only want to use the scaled features for prediction, then we retrieve only the scaled columns.
+        # # (This is easy because the columns are renamed with the model name in the column name)
         # prediction_df = all_feature_df[
         #     [col for col in all_feature_df if "standardscaler" in col]
         # ]
@@ -90,7 +90,7 @@ class IrisPipeline(processor.ProcessPipelineBase):
         # This case will result in additional columns on the dataframe named as
         # "<original-column-name>_StandardScaler()".
 
-        # Note: there are no returned values for this method, the reult is an update in the self.column_transformations dictionary
+        # Note: there are no returned values for this method, the result is an update in the self.column_transformations dictionary
 
         for column in df.columns:
             if df[column].dtype not in ("float", "int"):
@@ -98,7 +98,7 @@ class IrisPipeline(processor.ProcessPipelineBase):
             self.fit_scaler(df[column], standard_scaling=True)
 
 
-class IrisExpirament(experiment.ClassifierExpiramentBase):
+class IrisExperiment(experiment.ClassifierExperimentBase):
     def __init__(
         self,
         train_setup: pipeline_utils.MLSetup,
@@ -140,7 +140,7 @@ class IrisExpirament(experiment.ClassifierExpiramentBase):
 
         assert (
             len(set(train_df.index).intersection(set(test_df.index))) == 0
-        ), "There are duplicated indecies in the train and test set."
+        ), "There are duplicated indices in the train and test set."
 
         return pipeline_utils.ExperimentSetup(
             pipeline_utils.MLSetup(
