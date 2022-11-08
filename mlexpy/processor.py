@@ -80,14 +80,6 @@ class ProcessPipelineBase:
                 f"The provided {model} model has a .fit() method. Make sure to store the resulting fit method for proper train test seperation."
             )
 
-    @classmethod
-    def prediction_call(
-        cls,
-        record: Union[pd.DataFrame, pd.Series],
-        process_tag: str = "_prediction",
-    ) -> pd.DataFrame:
-        raise NotImplementedError("This needs to be implemented in the child class.")
-
     @property
     def label_encoder(self) -> Any:
         if not hasattr(self, "_label_encoder"):

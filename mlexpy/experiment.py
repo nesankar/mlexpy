@@ -91,10 +91,6 @@ class ExpiramentBase:
         if not self.model_dir.is_dir():
             make_directory(self.model_dir)
 
-    def set_pipeline(self, feat_coor_thresh: float = 0.90, top_cols=0.5) -> None:
-        """Reset the params of the pipeline"""
-        raise NotImplementedError("This needs to be implemented in the child class.")
-
     def process_data(self, process_method: Optional[str] = None) -> ExperimentSetup:
         raise NotImplementedError("This needs to be implemented in the child class.")
 
