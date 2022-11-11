@@ -15,6 +15,7 @@ from sklearn.metrics import (
     roc_auc_score,
     RocCurveDisplay,
     mean_squared_error,
+    log_loss,
 )
 from sklearn.model_selection import (
     GridSearchCV,
@@ -113,9 +114,13 @@ class ExperimentBase:
         logger.info("Model trained")
         return model
 
-    def predict(self, full_setup: ExperimentSetup, model: Any) -> Any:
-        predictions = model.predict(full_setup.test_data.obs)
-        return predictions
+    def predict(
+        self, full_setup: ExperimentSetup, model: Any, proba: bool = False
+    ) -> Any:
+        if proba:
+            return model.predict_proba(full_setup.test_data.obs)
+        else:
+            return model.predict(full_setup.test_data.obs)
 
     def evaluate_predictions(
         self,
@@ -242,6 +247,7 @@ class ClassifierExperimentBase(ExperimentBase):
         self.standard_metric = balanced_accuracy_score
         self.metric_dict = {
             "f1": f1_score,
+            "log_loss": log_loss,
             "balanced_accuracy": balanced_accuracy_score,
             "accuracy": accuracy_score,
             "confusion_matrix": confusion_matrix,
@@ -252,6 +258,7 @@ class ClassifierExperimentBase(ExperimentBase):
         self,
         full_setup: ExperimentSetup,
         predictions: Iterable,
+        class_probabilities: Iterable,
         baseline_prediction: bool = False,
     ) -> Dict[str, float]:
         """Evaluate all predictions, and return the results in a dict"""
@@ -281,9 +288,17 @@ class ClassifierExperimentBase(ExperimentBase):
                     average="weighted",
                 )
             else:
-                result_dict[name] = metric(
-                    full_setup.test_data.labels, evaluation_prediction
-                )
+                try:
+                    result_dict[name] = metric(
+                        full_setup.test_data.labels, evaluation_prediction
+                    )
+                except ValueError:
+                    try:
+                        result_dict[name] = metric(
+                            full_setup.test_data.labels, class_probabilities
+                        )
+                    except ValueError:
+                        print(f"Unknown issues with the {name} metric evaluation.")
 
         for name, score in result_dict.items():
             print(f"\nThe {name} score is: \n {score}.")
