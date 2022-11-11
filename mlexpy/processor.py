@@ -95,7 +95,7 @@ class ProcessPipelineBase:
     def encode_labels(self, labels: pd.Series) -> pd.Series:
         self.series_assertion(labels)
         coded_labels = self.label_encoder.transform(labels.values)
-        return pd.Series(coded_labels, name=labels.name)
+        return pd.Series(coded_labels, name=labels.name, index=labels.index)
 
     def default_store_model(self, model: Any, model_tag: str) -> None:
         """Given a calculated model, store it locally using joblib.
