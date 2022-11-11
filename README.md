@@ -24,7 +24,7 @@ The core goal is to leverage fairly basic, yet powerful, and clear data structur
     - I have a new model, I would like to know how it performs given **exactly** the same data and processing steps.
     - I would like to try computing a feature differently in the processing steps. However, to compare to previous models, I would like to use **exactly** the same data, **exactly** the same process for the other features, and **exactly** the same model and training steps (ex. the same Cross Validation, parameter searching, and tuning).
 
-    - Note: If the used features change, or the provided features change in all downstream process must change too in order to accommodate the structural change in the process, and no-longer can **exact** comparisons of a single component (data, process, model) be compared.
+    - Note: If the used features change, or the provided features change; all downstream process **must** change too in order to accommodate the structural change in the process, and no-longer can **exact** comparisons of a single component (data, process, model) be compared.
 
 
 Note: Currently, `mlexpy` _only_ provides tooling for supervised learning.
@@ -36,9 +36,9 @@ Note: Currently, `mlexpy` _only_ provides tooling for supervised learning.
 At minimum using `mlexpy` requires defining 2 classes each one with a `.process_data()` method. These classes inherit the `mlexpy` base classes, which don't have these methods defined, however, they do provide a variety of boilerplate ML tooling. An example workflow is shown below:
 
 The plain language goals of `mlexpy` usage is described below. 
-1. Do all of your data processing in the `processor` module. This is done by creating a child class that inherits the `PipelineProcessorBase` class, which bring in a wide variety of ML tooling. However, teh users need to write the `.process_data()` method in their child class.
+1. Do all of your data processing in the `processor` module. This is done by creating a child class that inherits the `PipelineProcessorBase` class. However, the user need to write the `.process_data()` method in their child class.
 
-2. Do all of your model experimentation in the `{Classifier, Regression}ExperimentBase` class. However, a user needs to define the `process_data()` method for this class too. In general, this method should create an instance of the users pipeline child class and call the _pipeline_ class's `.process_data()` method.
+2. Do all of your model experimentation in the `experiment` module. This is done by creating a child class that inherits the `{Classifier, Regression}ExperimentBase` class. However, a user needs to define the `process_data()` method for this class too. In general, this method should create an instance of the users pipeline child class and call the _pipeline_ class's `.process_data()` method.
 
 These 2 methods provide the minimum needed infrastructure from a user to perform model training and evaluation in a highly structured manner, as outlined in the principles and goals above.
 
