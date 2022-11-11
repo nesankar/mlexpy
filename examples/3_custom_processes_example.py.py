@@ -1,8 +1,7 @@
 import sys
 from pathlib import Path
 import numpy as np
-import pandas as pd
-from typing import List, Optional, Union, Callable
+from typing import List
 import argparse
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.datasets import load_iris

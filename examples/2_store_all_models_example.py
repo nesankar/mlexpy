@@ -5,7 +5,6 @@ import pandas as pd
 from typing import List, Optional, Union, Callable
 import argparse
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.datasets import load_iris
 
 sys.path.append(str(Path.cwd()))
 print(sys.path)

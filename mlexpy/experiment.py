@@ -126,6 +126,7 @@ class ExperimentBase:
         self,
         full_setup: ExperimentSetup,
         predictions: Iterable,
+        class_probabilities: Optional[Iterable] = None,
         baseline_prediction: bool = False,
     ) -> Dict[str, float]:
         raise NotImplementedError("This needs to be implemented in the child class.")
@@ -258,7 +259,7 @@ class ClassifierExperimentBase(ExperimentBase):
         self,
         full_setup: ExperimentSetup,
         predictions: Iterable,
-        class_probabilities: Iterable,
+        class_probabilities: Optional[Iterable] = None,
         baseline_prediction: bool = False,
     ) -> Dict[str, float]:
         """Evaluate all predictions, and return the results in a dict"""
@@ -376,6 +377,7 @@ class RegressionExperimentBase(ExperimentBase):
         self,
         full_setup: ExperimentSetup,
         predictions: Iterable,
+        class_probabilities: Optional[Iterable] = None,
         baseline_prediction: bool = False,
     ) -> Dict[str, float]:
         """Evaluate all predictions, and return the results in a dict"""
