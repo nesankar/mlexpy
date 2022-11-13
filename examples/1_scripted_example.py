@@ -121,3 +121,8 @@ if __name__ == "__main__":
         predictions=predictions,
         class_probabilities=class_probabilities,
     )
+
+    # ... also evaluate the ROC based metrics
+    roc_results = experiment_obj.evaluate_roc_metrics(
+        processed_datasets, class_probabilities, trained_model
+    )
