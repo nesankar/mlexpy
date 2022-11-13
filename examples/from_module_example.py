@@ -103,7 +103,7 @@ class IrisExperiment(experiment.ClassifierExperimentBase):
         self,
         train_setup: pipeline_utils.MLSetup,
         test_setup: pipeline_utils.MLSetup,
-        cv_split_count: int,
+        cv_split_count: int = 5,
         rnd_int: int = 100,
         model_dir: Optional[Union[str, Path]] = None,
         model_storage_function: Optional[Callable] = None,
@@ -124,15 +124,34 @@ class IrisExperiment(experiment.ClassifierExperimentBase):
         )
 
     def process_data(
-        self, process_method_str: str = "process_data"
+        self, process_method_str: str = "process_data", from_file: bool = False
     ) -> pipeline_utils.ExperimentSetup:
 
         processor = IrisPipeline(process_tag=self.process_tag, model_dir=self.model_dir)
 
-        # Now do the data processing on the method defined in process_method_str.
+        # Now get the the data processing method defined in process_method_str.
         process_method = getattr(processor, process_method_str)
-        train_df = process_method(self.training.obs, training=True)
-        test_df = process_method(self.testing.obs, training=False)
+
+        # First, determine if we are processing data via loading previously trained transformation models...
+        if from_file:
+            # ... if so, just perform the process_method function for training
+            test_df = process_method(self.testing.obs, training=False)
+
+            # TODO: Also add loading a label encoder here...
+
+            return pipeline_utils.ExperimentSetup(
+                pipeline_utils.MLSetup(
+                    pd.DataFrame(),
+                    pd.Series(),
+                ),
+                pipeline_utils.MLSetup(
+                    test_df,
+                    self.testing.labels,
+                ),
+            )
+        else:
+            train_df = process_method(self.training.obs, training=True)
+            test_df = process_method(self.testing.obs, training=False)
 
         print(
             f"The train data are of size {train_df.shape}, the test data are {test_df.shape}."

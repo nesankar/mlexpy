@@ -25,6 +25,12 @@ def get_stratified_train_test_data(
 ) -> ExperimentSetup:
     """Perform some structured training and testing splitting. Default to stratified splitting."""
 
+    # First, test to see if the test frac is 1. Essentially this is to initilize a dataset ONLY for testing.
+    if test_frac == 1:
+        return ExperimentSetup(
+            MLSetup(pd.DataFrame(), pd.Series()), MLSetup(train_data, label_data)
+        )
+
     X_train, X_test, y_train, y_test = train_test_split(
         train_data,
         label_data,
