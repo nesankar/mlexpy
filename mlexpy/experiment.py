@@ -104,9 +104,9 @@ class ExperimentBase:
         self,
         model: Any,
         full_setup: ExperimentSetup,
-        params: Optional[Dict[str, Any]] = None,
         cv_model: str = "random_search",
-        cv_iterations: Optional[int] = None,
+        cv_iterations: int = 20,
+        params: Optional[Dict[str, Any]] = None,
     ):
         if params:
             model = self.cv_search(

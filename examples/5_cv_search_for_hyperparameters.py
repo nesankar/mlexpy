@@ -100,7 +100,7 @@ if __name__ == "__main__":
     experiment_obj = IrisExperiment(
         train_setup=experiment_setup.train_data,
         test_setup=experiment_setup.test_data,
-        cv_split_count=20,
+        cv_split_count=5,
         model_tag="example_development_model",
         process_tag="example_development_process",
         model_dir=Path.cwd(),
