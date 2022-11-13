@@ -131,4 +131,4 @@ dmypy.json
 # Misc
 .vscode
 .DS_store
-**/example_development_process
+**/example_stored_process
