@@ -1,10 +1,12 @@
 import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
 import numpy as np
 import logging
 from joblib import dump, load
 import sys
 from pathlib import Path
-from typing import Dict, Optional, Any, Iterable, Callable, Union
+from typing import Dict, Optional, Any, Iterable, Callable, Union, Tuple
 
 from sklearn.metrics import (
     balanced_accuracy_score,
@@ -17,6 +19,8 @@ from sklearn.metrics import (
     RocCurveDisplay,
     mean_squared_error,
     log_loss,
+    auc,
+    roc_curve,
 )
 from sklearn.model_selection import (
     GridSearchCV,
@@ -350,13 +354,62 @@ class ClassifierExperimentBase(ExperimentBase):
                 y_true=full_setup.test_data.labels,
                 y_score=class_probabilities,
                 average="weighted",
-                multi_class="ovo",
+                multi_class="ovr",
             )
             print(
                 f"""\nThe multi-class weighted ROC AUC score is: {result_dict["roc_auc_score"]}"""
             )
 
+            self.plot_multiclass_roc(
+                full_setup=full_setup,
+                class_probabilities=class_probabilities,
+            )
+
         return result_dict
+
+    def plot_multiclass_roc(
+        self,
+        full_setup: ExperimentSetup,
+        class_probabilities: Iterable,
+        fig_size: Tuple[int, int] = (8, 8),
+    ) -> None:
+        """Following from here: https://stackoverflow.com/questions/45332410/roc-for-multiclass-classification
+        """
+
+        record_count, class_count = class_probabilities.shape
+
+        fpr, tpr, roc_auc = {}, {}, {}
+
+        # First, calculate all of the explicit class roc curves...
+        y_test_dummies = pd.get_dummies(
+            full_setup.test_data.labels, drop_first=False
+        ).values
+        for i in range(class_count):
+            fpr[i], tpr[i], _ = roc_curve(
+                y_test_dummies[:, i], class_probabilities[:, i]
+            )
+            roc_auc[i] = auc(fpr[i], tpr[i])
+
+        #  Construct all plots
+        fig, ax = plt.subplots(figsize=fig_size)
+        ax.plot([0, 1], [0, 1], "k--")
+        ax.set_xlim([0.0, 1.0])
+        ax.set_ylim([0.0, 1.05])
+        ax.set_xlabel("False Positive Rate")
+        ax.set_ylabel("True Positive Rate")
+        ax.set_title("Receiver operating characteristic evaluation")
+        for i in range(class_count):
+            ax.plot(
+                fpr[i],
+                tpr[i],
+                label=f"ROC curve (area = {round(roc_auc[i], 2)}) for label {i}",
+                alpha=0.6,
+            )
+
+        ax.legend(loc="best")
+        ax.grid(alpha=0.4)
+        sns.despine()
+        plt.show()
 
 
 class RegressionExperimentBase(ExperimentBase):
