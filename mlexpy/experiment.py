@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import logging
 from joblib import dump, load
@@ -294,6 +295,7 @@ class ClassifierExperimentBase(ExperimentBase):
                         full_setup.test_data.labels, evaluation_prediction
                     )
                 except ValueError:
+                    # See if we would succeed with using the class probabilities
                     try:
                         result_dict[name] = metric(
                             full_setup.test_data.labels, class_probabilities
@@ -309,28 +311,44 @@ class ClassifierExperimentBase(ExperimentBase):
     def evaluate_roc_metrics(
         self,
         full_setup: ExperimentSetup,
+        class_probabilities: Iterable,
         model: Any,
     ) -> Dict[str, float]:
         """Perform any roc metric evaluation here. These require prediction probabilities or confidence, thus are separate
         from more standard prediction value based metrics."""
 
-        probabilities = model.predict_proba(full_setup.test_data.obs)
+        # First, check that there are more than 1 predictions
+        if len(class_probabilities) <= 1:
+            raise ValueError(
+                f"The class_probabilities passed to evaluate_roc_metrics is only 1 record class_probabilities.shape = {class_probabilities.shape}"
+            )
+
         result_dict: Dict[str, float] = {}
         # Need to determine if using a multiclass or binary classification experiment
-        if len(set(full_setup.test_data.labels)) <= 2:
-            logger.info("Computing the binary AU ROC curve scores.")
-            # Then this is binary classification
+        if len(class_probabilities[0]) <= 2:
+            logger.info("Computing the binary AU-ROC curve scores.")
+            # Then this is binary classification. Note from sklearn docs: The probability estimates correspond
+            # to the **probability of the class with the greater label**
             result_dict["roc_auc_score"] = roc_auc_score(
                 y_true=full_setup.test_data.labels,
-                y_score=probabilities,
+                y_score=class_probabilities[:, 1],
             )
             print(f"""\nThe ROC AUC score is: {result_dict["roc_auc_score"]}""")
+
+            dsp = RocCurveDisplay.from_estimator(
+                estimator=model,
+                X=full_setup.test_data.obs,
+                y=full_setup.test_data.labels,
+            )
+            dsp.plot()
+            plt.show()
+
         else:
-            logger.info("Computing the multi-class AU ROC curve scores.")
+            logger.info("Computing the multi-class AU-ROC curve scores.")
             # We are doing multiclass classification and need to use more parameters to calculate the roc
             result_dict["roc_auc_score"] = roc_auc_score(
                 y_true=full_setup.test_data.labels,
-                y_score=probabilities,
+                y_score=class_probabilities,
                 average="weighted",
                 multi_class="ovo",
             )
@@ -338,11 +356,6 @@ class ClassifierExperimentBase(ExperimentBase):
                 f"""\nThe multi-class weighted ROC AUC score is: {result_dict["roc_auc_score"]}"""
             )
 
-        RocCurveDisplay.from_estimator(
-            estimator=model,
-            X=full_setup.test_data.obs,
-            y=full_setup.test_data.labels,
-        )
         return result_dict
 
 
