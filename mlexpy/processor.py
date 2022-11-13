@@ -201,8 +201,24 @@ class ProcessPipelineBase:
 
         result_df = pd.DataFrame(index=df.index)
 
+        if len(self.column_transformations) == 0:
+            # First, check to see if there might be any files to load
+            try:
+                self.load_feature_based_models()
+            except FileNotFoundError:
+                logger.exception(
+                    f"Note: No files were found for {self.process_tag}. If these should be found, check to make sure the models were dumped correctly. (Looked at in: {self.model_dir})"
+                )
+                logger.info(
+                    "\nContinuing with out loading any model based column transformations."
+                )
+                return df
+
         for column, transformations in self.column_transformations.items():
-            if column not in df.columns:
+            if "Unnamed:" in column:
+                # We never want to use this column
+                continue
+            elif column not in df.columns:
                 logger.info(
                     f"{column} NOT found in the provided dataframe. Skipping {transformations}."
                 )

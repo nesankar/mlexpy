@@ -97,8 +97,16 @@ class ExperimentBase:
         if not self.model_dir.is_dir():
             make_directory(self.model_dir)
 
-    def process_data(self, process_method_str: str = "process_data") -> ExperimentSetup:
+    def process_data(
+        self, process_method_str: str = "process_data", from_file: bool = False
+    ) -> ExperimentSetup:
         raise NotImplementedError("This needs to be implemented in the child class.")
+
+    def process_data_from_stored_models(self) -> ExperimentSetup:
+        """Here perform all data processing using models loaded from storage."""
+
+        from_file_processed_data = self.process_data(from_file=True)
+        return from_file_processed_data
 
     def train_model(
         self,
@@ -234,7 +242,7 @@ class ClassifierExperimentBase(ExperimentBase):
         self,
         train_setup: MLSetup,
         test_setup: MLSetup,
-        cv_split_count: int,
+        cv_split_count: int = 5,
         rnd_int: int = 100,
         model_dir: Optional[Union[str, Path]] = None,
         model_storage_function: Optional[Callable] = None,
