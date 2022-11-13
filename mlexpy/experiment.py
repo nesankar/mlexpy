@@ -105,12 +105,16 @@ class ExperimentBase:
         model: Any,
         full_setup: ExperimentSetup,
         params: Optional[Dict[str, Any]] = None,
+        cv_model: str = "random_search",
+        cv_iterations: Optional[int] = None,
     ):
         if params:
             model = self.cv_search(
                 full_setup.train_data,
                 model,
                 params,
+                cv_model=cv_model,
+                random_iterations=cv_iterations,
             )
         else:
             logger.info("Performing standard model training.")
@@ -250,7 +254,7 @@ class ClassifierExperimentBase(ExperimentBase):
             process_tag,
         )
         self.baseline_value = None  # to be implemented in the child class
-        self.standard_metric = balanced_accuracy_score
+        self.standard_metric = "balanced_accuracy"
         self.metric_dict = {
             "f1": f1_score,
             "log_loss": log_loss,
@@ -373,8 +377,7 @@ class ClassifierExperimentBase(ExperimentBase):
         class_probabilities: Iterable,
         fig_size: Tuple[int, int] = (8, 8),
     ) -> None:
-        """Following from here: https://stackoverflow.com/questions/45332410/roc-for-multiclass-classification
-        """
+        """Following from here: https://stackoverflow.com/questions/45332410/roc-for-multiclass-classification"""
 
         record_count, class_count = class_probabilities.shape
 
