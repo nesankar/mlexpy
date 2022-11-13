@@ -1,4 +1,5 @@
 import sys
+import pandas as pd
 from pathlib import Path
 import numpy as np
 from typing import List
@@ -37,7 +38,7 @@ def parse_args(args: List[str]) -> argparse.Namespace:
         "-f",
         "--test_frac",
         help="What is the desired test ratio to use?",
-        default=0.35,
+        default=1,
         type=float,
     )
 
@@ -52,7 +53,9 @@ def parse_args(args: List[str]) -> argparse.Namespace:
     return parser.parse_args(args)
 
 
-"""An example similar to the notebook previously, here with more complexity shown as a script, and CL runnable"""
+"""An example similar to the notebook previously, here with more complexity shown as a script, and CL runnable. 
+In this case show how to load a historically trained model to evaluate a new dataset.
+"""
 
 if __name__ == "__main__":
     args = parse_args(sys.argv[1:])
@@ -61,13 +64,14 @@ if __name__ == "__main__":
     model_rs = np.random.RandomState(args.model_seed)
     process_rs = np.random.RandomState(args.process_seed)
 
-    # First, read in the dataset as a dataframe. Because mlexpy is meant to be an exploratory/experimental tool,
-    # dataframes are preferred for their readability.
-    data = load_iris(as_frame=True)
-    features = data["data"]
-    labels = data["target"]
+    # Now, this time, load from a file... Here use the "NEW" dataset (the other 1/3 we created in script 2)
+    data = pd.read_csv(Path(__file__).parent / "data" / "new_data.csv")
+    target_col = "target"
+    labels = data[target_col]
+    features = data[[col for col in data.columns if col != target_col]]
 
-    # Now, generate the ExperimentSetup object, that splits the dataset for training and testing.
+    # In this case, all we are going to be doing is evaluating our "new" data. We can do this by setting the test frac to 1
+
     experiment_setup = pipeline_utils.get_stratified_train_test_data(
         train_data=features,
         label_data=labels,
@@ -75,45 +79,27 @@ if __name__ == "__main__":
         random_state=process_rs,
     )
 
-    # This provides us with a named tuple, with attributes of .train_data and .test_data
-    # each one with attributes of .obs and .labels. For example...
-    train_label_count = experiment_setup.train_data.labels.shape[0]
-    test_label_count = experiment_setup.test_data.labels.shape[0]
-    total_data_count = features.shape[0]
-
-    print(
-        f"Train labels are {round((total_data_count - train_label_count) / total_data_count * 100, 2)}% of the original data ({train_label_count})."
-    )
-    print(
-        f"Test labels are {round((total_data_count - test_label_count) / total_data_count * 100, 2)}% of the original data ({test_label_count})."
-    )
-
-    # Define the experiment
+    # ... here, instantiate the experiment class...
     experiment_obj = IrisExperiment(
         train_setup=experiment_setup.train_data,
         test_setup=experiment_setup.test_data,
-        cv_split_count=20,
-        model_tag="example_development_model",
-        process_tag="example_development_process",
-        model_dir=Path.cwd(),
+        model_tag="example_stored_model",
+        process_tag="example_stored_process",
+        model_dir=Path(
+            __file__
+        ).parent,  # This means I will look for the models alongside this script
     )
 
     # Now begin the experimentation, start with performing the data processing...
-    processed_datasets = experiment_obj.process_data()
+    processed_datasets = experiment_obj.process_data_from_stored_models()
 
-    # ... then train our model...
-    trained_model = experiment_obj.train_model(
-        RandomForestClassifier(
-            random_state=model_rs
-        ),  # This is why we have 2 different random states...
-        processed_datasets,
-        # model_algorithm.hyperparams,  # If this is passed, then cross validation search is performed, but slow.
-    )
+    # ... then LOAD our model...
+    loaded_model = experiment_obj.load_model()
 
     # Get the predictions and evaluate the performance.
-    predictions = experiment_obj.predict(processed_datasets, trained_model)
+    predictions = experiment_obj.predict(processed_datasets, loaded_model)
     class_probabilities = experiment_obj.predict(
-        processed_datasets, trained_model, proba=True
+        processed_datasets, loaded_model, proba=True
     )
     results = experiment_obj.evaluate_predictions(
         processed_datasets,
