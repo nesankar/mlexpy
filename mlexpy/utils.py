@@ -14,13 +14,15 @@ def make_directory(directory_path: Path) -> None:
 
 
 def df_assertion(data_structure: Any) -> None:
-    assert isinstance(data_structure, pd.DataFrame)
-    f"The provided variable is not a pd.DataFrame ({type(data_structure)}). Need to pass a DataFrame."
+    assert isinstance(
+        data_structure, pd.DataFrame
+    ), f"The provided variable is not a pd.DataFrame ({type(data_structure)}). Need to pass a DataFrame."
 
 
 def series_assertion(data_structure: Any) -> None:
-    assert isinstance(data_structure, pd.Series)
-    f"The provided variable is not a pd.Series ({type(data_structure)}). Need to pass a Series."
+    assert isinstance(
+        data_structure, pd.Series
+    ), f"The provided variable is not a pd.Series ({type(data_structure)}). Need to pass a Series."
 
 
 def initial_filtering(

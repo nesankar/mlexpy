@@ -22,6 +22,7 @@ def get_stratified_train_test_data(
     label_data: pd.Series,
     random_state: np.random.RandomState,
     test_frac: float = 0.3,
+    stratify: bool = False,
 ) -> ExperimentSetup:
     """Perform some structured training and testing splitting. Default to stratified splitting."""
 
@@ -31,13 +32,21 @@ def get_stratified_train_test_data(
             MLSetup(pd.DataFrame(), pd.Series()), MLSetup(train_data, label_data)
         )
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        train_data,
-        label_data,
-        test_size=test_frac,
-        stratify=label_data,
-        random_state=random_state,
-    )
+    if stratify:
+        X_train, X_test, y_train, y_test = train_test_split(
+            train_data,
+            label_data,
+            test_size=test_frac,
+            stratify=label_data,
+            random_state=random_state,
+        )
+    else:
+        X_train, X_test, y_train, y_test = train_test_split(
+            train_data,
+            label_data,
+            test_size=test_frac,
+            random_state=random_state,
+        )
 
     return ExperimentSetup(MLSetup(X_train, y_train), MLSetup(X_test, y_test))
 
