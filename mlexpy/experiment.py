@@ -57,7 +57,7 @@ class ExperimentBase:
         self.rnd = np.random.RandomState(rnd_int)
         self.cv_split_count = cv_split_count
         self.metric_dict: Dict[str, Callable] = {}
-        self.standard_metric = None
+        self.standard_metric = ""
         self.process_tag = process_tag
         self.model_tag = model_tag
 
@@ -327,7 +327,7 @@ class ClassifierExperimentBase(ExperimentBase):
     def evaluate_roc_metrics(
         self,
         full_setup: ExperimentSetup,
-        class_probabilities: Iterable,
+        class_probabilities: np.ndarray,
         model: Any,
     ) -> Dict[str, float]:
         """Perform any roc metric evaluation here. These require prediction probabilities or confidence, thus are separate
@@ -382,12 +382,12 @@ class ClassifierExperimentBase(ExperimentBase):
     def plot_multiclass_roc(
         self,
         full_setup: ExperimentSetup,
-        class_probabilities: Iterable,
+        class_probabilities: np.ndarray,
         fig_size: Tuple[int, int] = (8, 8),
     ) -> None:
         """Following from here: https://stackoverflow.com/questions/45332410/roc-for-multiclass-classification"""
 
-        record_count, class_count = class_probabilities.shape
+        _, class_count = class_probabilities.shape
 
         fpr, tpr, roc_auc = {}, {}, {}
 
