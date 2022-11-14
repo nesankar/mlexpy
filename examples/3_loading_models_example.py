@@ -4,8 +4,6 @@ from pathlib import Path
 import numpy as np
 from typing import List
 import argparse
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.datasets import load_iris
 
 sys.path.append(str(Path.cwd()))
 print(sys.path)
@@ -53,7 +51,7 @@ def parse_args(args: List[str]) -> argparse.Namespace:
     return parser.parse_args(args)
 
 
-"""An example similar to the notebook previously, here with more complexity shown as a script, and CL runnable. 
+"""An example similar to the notebook previously, here with more complexity shown as a script, and CL runnable.
 In this case show how to load a historically trained model to evaluate a new dataset.
 """
 

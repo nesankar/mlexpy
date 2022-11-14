@@ -3,7 +3,6 @@ from pathlib import Path
 import numpy as np
 from typing import List
 import argparse
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.datasets import load_iris
 
 sys.path.append(str(Path.cwd()))
@@ -56,7 +55,7 @@ def parse_args(args: List[str]) -> argparse.Namespace:
 """An example similar to the notebook previously, here with more complexity shown as a script, and CL runnable, and showing
 hyperparameter tuning via cv search.
 
-One possible pythonic way to store our model definitions is via the MlModelInfo named tuple, with 
+One possible pythonic way to store our model definitions is via the MlModelInfo named tuple, with
 examples shown in the model_defs.py file. This proivdes us one source of truth to store where we define the information about
 any given machine learning model (following the fairly standardized sklearn / model and hyperparameter frameworks).
 Usage is shown below.

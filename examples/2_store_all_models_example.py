@@ -2,13 +2,13 @@ import sys
 from pathlib import Path
 import numpy as np
 import pandas as pd
-from typing import List, Optional, Union, Callable
+from typing import List
 import argparse
 from sklearn.ensemble import RandomForestClassifier
 
 sys.path.append(str(Path.cwd()))
 print(sys.path)
-from mlexpy import experiment, pipeline_utils, processor
+from mlexpy import pipeline_utils
 
 from from_module_example import IrisExperiment
 
