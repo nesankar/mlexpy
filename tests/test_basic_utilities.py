@@ -1,7 +1,7 @@
 import pytest
 from fixtures import simple_dataframe, simple_series
 from mlexpy import utils, pipeline_utils
-import pandas as pd
+from pandas.testing import assert_frame_equal
 import numpy as np
 
 
@@ -13,14 +13,14 @@ def test_filtering(simple_dataframe):
 
     filter_dict = {"obs2": [filter_fn]}
     filtered_data = utils.initial_filtering(simple_dataframe, filter_dict)
-    assert filtered_data.equals(simple_dataframe[simple_dataframe["obs2"] != 4])
+    assert_frame_equal(filtered_data, simple_dataframe[simple_dataframe["obs2"] != 4])
 
     def filter_fn_2(value: int) -> bool:
         return value == 4
 
     filter_dict_2 = {"obs2": [filter_fn_2]}
     filtered_data_2 = utils.initial_filtering(simple_dataframe, filter_dict_2)
-    assert filtered_data_2.equals(simple_dataframe[simple_dataframe["obs2"] == 4])
+    assert_frame_equal(filtered_data_2, simple_dataframe[simple_dataframe["obs2"] == 4])
 
     filter_dict_3 = {"obs2": [filter_fn_2, filter_fn]}
     filtered_data_3 = utils.initial_filtering(simple_dataframe, filter_dict_3)
@@ -59,8 +59,8 @@ def test_train_split(simple_dataframe):
         simple_dataframe[["obs1", "obs2"]], simple_dataframe["target"], random_state=rs2
     )
 
-    assert first_split.train_data.obs.equals(
-        second_split.train_data.obs
+    assert_frame_equal(
+        first_split.train_data.obs, second_split.train_data.obs
     ), "When using identical data and random seeds, the train test split data are not identical."
 
     rs3 = np.random.RandomState(10)
@@ -85,6 +85,6 @@ def test_train_split(simple_dataframe):
     assert (
         fourth_split.train_data.obs.empty
     ), "A test frac of 1 is not returning an empty train set."
-    assert fourth_split.test_data.obs.equals(
-        simple_dataframe[["obs1", "obs2"]]
+    assert_frame_equal(
+        fourth_split.test_data.obs, simple_dataframe[["obs1", "obs2"]]
     ), "A test frac of 1 is not returning the passed data as the train set."
