@@ -318,6 +318,7 @@ More detailed documentation can be found in the examples, docs, and docstrings i
 - [ ] Add CV search description to readme
 - [ ] Add tests
 - [ ] docstrings
+- [ ] Add in logic to make sure there are no `"Unnamed: 0"` columns
 
 
 
