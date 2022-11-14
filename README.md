@@ -1,5 +1,5 @@
 # mlexpy
-### WIP updated 2022-11-10
+### WIP updated 2022-11-13
 Simple utilities for handling and managing exploratory and experimental machine learning development.
 
 ## Introduction: 
@@ -124,7 +124,7 @@ processed_datasets = simple_experiment.process_data()
 trained_model = simple_experiment.train_model(
     RandomForestClassifier(),
     processed_datasets,
-    # model_algorithm.hyperparams,  # If this is passed, then cross validation search is performed, but slow.
+    # params=model_algorithm.hyperparams,  # If this is passed, then cross validation search is performed, but slow.
 )
 
 # Get the predictions and evaluate the performance.
@@ -233,16 +233,34 @@ The `{Classification, Regression}ExperimentBase` modules are meant to provide a 
 This method performs all data processing for _both_ the training and testing data. The `process_method_str` argument is the name of the method you would like the processor class (in the example below `YourPipelineChildClass`) to use to process the data. By default this will be `.process_data()` however does not need to be. In this manner you can experiment with different pipeline processing methods, and store them in code, by simple passing different names inside of this function.
     ```
     def process_data(
-        self, process_method_str: Optional[Callable] = "process_data"
+        self, process_method_str: Optional[Callable] = "process_data", from_file: bool=False
     ) -> pipeline_utils.ExperimentSetup:
 
         processor = YourPipelineChildClass(process_tag=self.process_tag, model_dir=self.model_dir)
 
         # Now do the data processing on the method defined in process_method_str.
         process_method = getattr(processor, process_method_str)
-        train_df = process_method(self.training.obs, training=True)
-        test_df = process_method(self.testing.obs, training=False)
 
+        # First, determine if we are processing data via loading previously trained transformation models...
+        if from_file:
+            # ... if so, just perform the process_method function for training
+            test_df = process_method(self.testing.obs, training=False)
+
+            # TODO: Also add loading a label encoder here...
+
+            return pipeline_utils.ExperimentSetup(
+                pipeline_utils.MLSetup(
+                    pd.DataFrame(),
+                    pd.Series(),
+                ),
+                pipeline_utils.MLSetup(
+                    test_df,
+                    self.testing.labels,
+                ),
+            )
+        else:
+            train_df = process_method(self.training.obs, training=True)
+            test_df = process_method(self.testing.obs, training=False)
         print(
             f"The train data are of size {train_df.shape}, the test data are {test_df.shape}."
         )
@@ -263,11 +281,46 @@ This method performs all data processing for _both_ the training and testing dat
         )
     ```
 
+#### Model training in the `ExperimentBase` class:
+
+Training an ML model is very simple using `mlexpy`. All of the necessary code for model training, and for hyperparameter search is defined in the `ExperimentBase` class. A model can be trained via the `.train_model()` method. If a hyperparameter space is provided to this method, then training includes a cross validated search through the hyperparemeter space. In the example above, the following snipit performs model training:
+```
+# ... then train the model...
+trained_model = simple_experiment.train_model(
+    RandomForestClassifier(),
+    processed_datasets,
+    # params=model_algorithm.hyperparams,  # If this is passed, then cross validation search is performed, but slow.
+)
+```
+
+##### Hyperparameter tuning
+By default if a hyperparameter space is provided, A randomized search of 20 iterations with 5-fold cross validation will be performed. If using a classifier, the scoring function for cross validation will be `f1_macro`, and for regression will be `rmse` (taken as a negative for maximization).
+
+### Evaluation
+Each of the `{Classification, Regression}ExperimentBase` classes define a relevant method for model evaluation, with the respective metrics. Each class type stores a dictionary of a metric_name -> metric_callable mapping, and evaluation simply operates for every key -> value pair in this dictionary. Custom metrics can be provided via the `.add_metric()` method, however need to accept the labels, and predictions as the input ex: `my_metric(labels: Iterable, predictions: Iterable) Note: If predictions are passed as class probabilities, make sure your metric functions raises an error if only the predicted class is provided)
+
+
 ### Notes:
-More detailed documentation can be found in the examples, docs, and docstrings.
+More detailed documentation can be found in the examples, docs, and docstrings including:
+
+- ``examples/0_classification_example.ipynb` A notebook showing a number of applications of `mlexpy`.
+- `examples/1_scripted_example.py` Showing a rough outline for suggested file and modules structure using `mlexpy`.
+- `examples/2_store_all_models_example.py` Showing how to call the model i/o tooling to store trained models, and to load trained models generating identical predictions.
+- `examples/3_loading_models_example.py` Showing how to load stored model definitions to evaluate an existing method on "new" data.
+- `examples/4_initial_filtering_and_binary_class_example.py` Showing how to use the initial filtering tooling (`mlexpy.utils.initial_filtering()`) and a case of binary classification.
+- `examples/5_cv_search_for_hyperpareters.py` Showing how to perform hyperparameter search, and an example of a model_definition file to store ML model definitions.
 
 ### Roadmap / TODOs:
 - Expand to `numpy.ndarray`s?
+- Test and/or expand to general statistical prediction models. (beyond the `sklearn` framework)
+
+- [ ] Add regression example
+- [ ] Include storage of label encoder + example
+- [ ] Add CV search description to readme
+- [ ] Add tests
+- [ ] docstrings
+
+
 
 
 
