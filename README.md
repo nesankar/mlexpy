@@ -231,6 +231,7 @@ The `{Classification, Regression}ExperimentBase` modules are meant to provide a 
 
 #### `.process_data(self, process_method: Optional[str] = None) -> ExperimentSetup:`
 This method performs all data processing for _both_ the training and testing data. The `process_method_str` argument is the name of the method you would like the processor class (in the example below `YourPipelineChildClass`) to use to process the data. By default this will be `.process_data()` however does not need to be. In this manner you can experiment with different pipeline processing methods, and store them in code, by simple passing different names inside of this function.
+
     ```
     def process_data(
         self, process_method_str: Optional[Callable] = "process_data", from_file: bool=False
@@ -245,8 +246,6 @@ This method performs all data processing for _both_ the training and testing dat
         if from_file:
             # ... if so, just perform the process_method function for training
             test_df = process_method(self.testing.obs, training=False)
-
-            # TODO: Also add loading a label encoder here...
 
             return pipeline_utils.ExperimentSetup(
                 pipeline_utils.MLSetup(
