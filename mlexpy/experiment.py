@@ -262,7 +262,7 @@ class ClassifierExperimentBase(ExperimentBase):
             process_tag,
         )
         self.baseline_value = None  # to be implemented in the child class
-        self.standard_metric = "balanced_accuracy"
+        self.standard_metric = "f1_macro"
         self.metric_dict = {
             "f1": f1_score,
             "log_loss": log_loss,
@@ -444,7 +444,7 @@ class RegressionExperimentBase(ExperimentBase):
             model_loading_function,
         )
         self.baseline_value = None
-        self.standard_metric = balanced_accuracy_score
+        self.standard_metric = "neg_root_mean_squared_error"
         self.metric_dict = {
             "mse": mean_squared_error,
             "mae": mean_absolute_error,
