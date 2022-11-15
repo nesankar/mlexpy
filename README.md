@@ -1,5 +1,5 @@
 # mlexpy
-### WIP updated 2022-11-13
+### WIP updated 2022-11-14
 Simple utilities for handling and managing exploratory and experimental machine learning development.
 
 ## Introduction: 
@@ -10,6 +10,8 @@ Simple utilities for handling and managing exploratory and experimental machine 
 The core goal is to leverage fairly basic, yet powerful, and clear data structures and patterns to improve the "workspace" for ML development. Hopefully, this library can trivialize some common ML development tasks, to allow developers, scientist, and any one else to spend more time in the _investigations_ in ML, and less time in coding or developing a reliable, readable, and reproducible exploratory codebase / script / notebook.
 
 `mlexpy` provides no explicit ML models or data. Instead it provides various tools to store, interact, and wrap different models, methods, or datasets.
+
+2. `mlexpy` is not meant to replace any work of a statistician or data scientist. But it is meant to improve their workflow with boilerplate code and "infrastructure" setup to perform better experiments faster.
 
 #### High level library goals:
 - 1. Provide intuitive, standardizable, and reproducible ML experiments.
@@ -315,8 +317,7 @@ More detailed documentation can be found in the examples, docs, and docstrings i
 
 - [ ] Add regression example
 - [ ] Include storage of label encoder + example
-- [ ] Add CV search description to readme
-- [ ] Add tests
+- [ ] Add model usage tests
 - [ ] docstrings
 - [ ] Add in logic to make sure there are no `"Unnamed: 0"` columns
 
