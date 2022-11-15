@@ -146,7 +146,7 @@ class ProcessPipelineBase:
     def keep_columns(self, df: pd.DataFrame, keep_cols: List[str]) -> pd.DataFrame:
         self.dataframe_assertion(df)
         """Given the defined keep_cols list, drop all other columns"""
-        return df[[keep_cols]]
+        return df[keep_cols]
 
     def set_default_encoder(self, encoder: Any) -> None:
         """Set the desired label encoder."""

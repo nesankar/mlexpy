@@ -3,7 +3,8 @@ from fixtures import simple_dataframe, base_processor, to_scale_dataframe
 from mlexpy import processor
 import pandas as pd
 from pandas.testing import assert_series_equal, assert_frame_equal
-import numpy as np
+from pathlib import Path
+import sys
 
 
 def test_basic_processor_exceptions(base_processor, simple_dataframe):
@@ -63,3 +64,50 @@ def test_no_transform_to_unnamed(base_processor, to_scale_dataframe):
     assert all(
         ["Unnamed:" not in col for col in scaled_columns]
     ), "Failure to NOT transform an 'Unnamed: ' column."
+
+
+def test_column_logic(to_scale_dataframe):
+    """Test that we can keep and drop columns as expected"""
+
+    pcr = processor.ProcessPipelineBase()
+    pcr.columns_to_drop.append("obs1")
+
+    # Test we drop this colum
+    assert_frame_equal(
+        pcr.drop_columns(to_scale_dataframe.copy()),
+        to_scale_dataframe[["obs2", "obs3", "Unnamed: 0"]],
+    )
+
+    # Test that we keep the columns we want
+    assert_frame_equal(
+        pcr.keep_columns(
+            to_scale_dataframe.copy(),
+            keep_cols=[col for col in to_scale_dataframe.columns if "obs" in col],
+        ),
+        to_scale_dataframe[["obs1", "obs2", "obs3"]],
+    )
+
+
+def test_directory_functions():
+    """Test that we can successfully define our file structure"""
+
+    pcr = processor.ProcessPipelineBase(
+        process_tag="test_example", model_dir=Path(__file__)
+    )
+
+    # Assert that we define the path as expected
+    assert pcr.model_dir == Path(__file__) / "test_example"
+
+    pcr_string = processor.ProcessPipelineBase(
+        process_tag="test_example", model_dir=str(Path(__file__))
+    )
+
+    # Assert that we create the correct path even if passing a string as the model directory
+    assert pcr_string.model_dir == Path(__file__) / "test_example"
+
+    pcr_none = processor.ProcessPipelineBase(
+        process_tag="test_example",
+    )
+
+    # Assert that we create the correct path even if not passing a model directory
+    assert pcr_none.model_dir == Path(sys.path[-1]) / ".models" / "test_example"
