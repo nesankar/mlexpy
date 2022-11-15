@@ -94,6 +94,9 @@ class ExperimentBase:
                 f"setting the model path to {model_dir}. (Converting from string to pathlib.Path)"
             )
             self.model_dir = model_dir / self.process_tag
+
+    def make_storage_dir(self) -> None:
+        """If we dont yet have the storage directory, make it now"""
         if not self.model_dir.is_dir():
             make_directory(self.model_dir)
 
@@ -209,6 +212,8 @@ class ExperimentBase:
         """Given a calculated model, store it locally using joblib.
         Longer term/other considerations can be found here: https://scikit-learn.org/stable/model_persistence.html
         """
+        self.make_storage_dir()
+
         if hasattr(model, "save_model"):
             # use the model's saving utilities, specifically beneficial wish xgboost. Can be beneficial here to use a json
             logger.info(f"Found a save_model method in {model}")
