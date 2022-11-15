@@ -46,7 +46,7 @@ These 2 methods provide the minimum needed infrastructure from a user to perform
 - An example simple case of using `mlexpy` can be found in `examples/0_classification_example.ipynb`
 
 ##### Example pseudo-code
-```
+```python
 # Get mlexpy modules
 from mlexpy.processor import ProcessPipelineBase
 from mlexpy.experiment import ClassifierExperimentBase
@@ -105,7 +105,7 @@ class SimpleExperiment(ClassifierExperimentBase):
             ),
         )
 
-(4) Now you can run your experiments using a random forest for example.
+# (4) Now you can run your experiments using a random forest for example.
 
 # Define the experiment
 simple_experiment = SimpleExperiment(
@@ -153,7 +153,7 @@ A simple method to perform any known filtering of the dataset prior to any train
 
 To try to simplify this task, and reduce boiler plate needed code, this function only needs a dictionary with values that provide boolean outputs of `True` on the records to keep for a given column. Any record with a value of `False` will be dropped from the dataset. An example dictionary is shown below is shown below:
 
-```
+```python
 drop_patterns = ["nan", "any-other-substring-i-dont-want"]
 def response_to_drop(s: str) -> bool:
     """For any string, return True if any of the substrings in drop patterns are present in the string s."""
@@ -175,7 +175,7 @@ The `processor` module is meant to provide a clean space to perform any processi
 #####  `.process_data(self, df: pd.DataFrame, training: bool = True) -> pd.DataFrame:`
 This method performs your feature engineering. A suggested template is:
     
-```
+```python
 def process_data(self, df: pd.DataFrame, training: bool = True) -> pd.DataFrame:
     """Perform here all steps of the data processing for feature engineering."""
     logger.info(f"Beginning to process all data of size {df.shape}.")
@@ -204,26 +204,26 @@ def process_data(self, df: pd.DataFrame, training: bool = True) -> pd.DataFrame:
 #####  `.fit_model_based_features(self, df: pd.DataFrame) -> None:`
 This method performs all of your fitting of models to be used in model based features. Once fit, these models are stored in an `ordereddictionary` with dataframe column names as keys, and the list of the models to apply as a list as the values. This dictionary applies models in the exact same order as they were fit -- this way the steps of a pipeline can be preserved. An example is provided showing how a standard scaler is fit for every numerical column, and what the `.fit_scaler()` method might look like.
 
-```
-    def fit_model_based_features(self, df: pd.DataFrame) -> None:
-    """Here to model fitting for a transformation."""
+```python
+def fit_model_based_features(self, df: pd.DataFrame) -> None:
+"""Here to model fitting for a transformation."""
 
     for column in df.columns:
         if df[column].dtype not in ("float", "int"):
             continue
         self.fit_scaler(df[column])
 
-    def fit_scaler(
-        self, feature_data: pd.Series, standard_scaling: bool = True
-    ) -> pd.Series:
-        """Perform the feature scaling here. If this a prediction method, then load and fit."""
+def fit_scaler(
+    self, feature_data: pd.Series, standard_scaling: bool = True
+) -> pd.Series:
+    """Perform the feature scaling here. If this a prediction method, then load and fit."""
 
-        if standard_scaling:
-            logger.info(f"Fitting a standard scaler to {feature_data.name}.")
-            scaler = StandardScaler()
-        else:
-            logger.info(f"Fitting a minmax scaler to {feature_data.name}.")
-            scaler = MinMaxScaler()
+    if standard_scaling:
+        logger.info(f"Fitting a standard scaler to {feature_data.name}.")
+        scaler = StandardScaler()
+    else:
+        logger.info(f"Fitting a minmax scaler to {feature_data.name}.")
+        scaler = MinMaxScaler()
 ```
 
 ### `{Classification, Regression}ExperimentBase` module
@@ -232,7 +232,7 @@ The `{Classification, Regression}ExperimentBase` modules are meant to provide a 
 #### `.process_data(self, process_method: Optional[str] = None) -> ExperimentSetup:`
 This method performs all data processing for _both_ the training and testing data. The `process_method_str` argument is the name of the method you would like the processor class (in the example below `YourPipelineChildClass`) to use to process the data. By default this will be `.process_data()` however does not need to be. In this manner you can experiment with different pipeline processing methods, and store them in code, by simple passing different names inside of this function.
 
-```
+```python
 def process_data(
     self, process_method_str: Optional[Callable] = "process_data", from_file: bool=False
 ) -> pipeline_utils.ExperimentSetup:
@@ -283,7 +283,7 @@ def process_data(
 #### Model training in the `ExperimentBase` class:
 
 Training an ML model is very simple using `mlexpy`. All of the necessary code for model training, and for hyperparameter search is defined in the `ExperimentBase` class. A model can be trained via the `.train_model()` method. If a hyperparameter space is provided to this method, then training includes a cross validated search through the hyperparemeter space. In the example above, the following snipit performs model training:
-```
+```python
 # ... then train the model...
 trained_model = simple_experiment.train_model(
     RandomForestClassifier(),
@@ -302,7 +302,7 @@ Each of the `{Classification, Regression}ExperimentBase` classes define a releva
 ### Notes:
 More detailed documentation can be found in the examples, docs, and docstrings including:
 
-- ``examples/0_classification_example.ipynb` A notebook showing a number of applications of `mlexpy`.
+- `examples/0_classification_example.ipynb` A notebook showing a number of applications of `mlexpy`.
 - `examples/1_scripted_example.py` Showing a rough outline for suggested file and modules structure using `mlexpy`.
 - `examples/2_store_all_models_example.py` Showing how to call the model i/o tooling to store trained models, and to load trained models generating identical predictions.
 - `examples/3_loading_models_example.py` Showing how to load stored model definitions to evaluate an existing method on "new" data.
