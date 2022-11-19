@@ -433,20 +433,24 @@ class RegressionExperimentBase(ExperimentBase):
         self,
         train_setup: MLSetup,
         test_setup: MLSetup,
-        cv_split_count: int,
+        cv_split_count: int = 5,
         rnd_int: int = 100,
-        model_tag: str = "",
+        model_dir: Optional[Union[str, Path]] = None,
         model_storage_function: Optional[Callable] = None,
         model_loading_function: Optional[Callable] = None,
+        model_tag: str = "_development",
+        process_tag: str = "_development",
     ) -> None:
         super().__init__(
             train_setup,
             test_setup,
             cv_split_count,
             rnd_int,
-            model_tag,
+            model_dir,
             model_storage_function,
             model_loading_function,
+            model_tag,
+            process_tag,
         )
         self.baseline_value = None
         self.standard_metric = "neg_root_mean_squared_error"
