@@ -1,5 +1,6 @@
 import pytest
 import pandas as pd
+import numpy as np
 
 from mlexpy import processor
 
@@ -35,10 +36,23 @@ def to_scale_dataframe() -> pd.DataFrame:
     var_2 = [0, 2, 1, 2, 3, 1, 2, 3, 4, 1]
     var_3 = [0, 2, 3, 4, 5, 5, 5, 5, 5, 10]
 
-    target = [v1 ** var_2[i] for i, v1 in enumerate(var_1)]
-
     return pd.DataFrame(
         zip(var_1, var_2, var_3, var_3),
         columns=["obs1", "obs2", "obs3", "Unnamed: 0"],
         index=list(range(len(var_1))),
     )
+
+
+@pytest.fixture
+def rs_10() -> np.random.RandomState:
+    return np.random.RandomState(10)
+
+
+@pytest.fixture
+def rs_20() -> np.random.RandomState:
+    return np.random.RandomState(20)
+
+
+@pytest.fixture
+def rs_30() -> np.random.RandomState:
+    return np.random.RandomState(30)
