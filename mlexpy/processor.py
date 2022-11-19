@@ -1,4 +1,5 @@
 import pandas as pd
+from pandas.api.types import is_numeric_dtype
 from typing import List, Any, Union, Optional, Callable
 from joblib import dump, load
 import sys
@@ -75,6 +76,11 @@ class ProcessPipelineBase:
         """If we dont yet have the storage directory, make it now"""
         if not self.model_dir.is_dir():
             make_directory(self.model_dir)
+
+    @staticmethod
+    def check_numeric_column(col: pd.Series) -> bool:
+        """Simply check if a column is numeric"""
+        return is_numeric_dtype(col)
 
     @staticmethod
     def fit_check(model: Any) -> None:
