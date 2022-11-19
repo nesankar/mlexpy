@@ -132,3 +132,5 @@ dmypy.json
 .vscode
 .DS_store
 **/example_stored_process
+**/test_regression_model_match_model
+**/test_classification_model_match_model
