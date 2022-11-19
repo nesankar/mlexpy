@@ -93,7 +93,7 @@ class IrisPipeline(processor.ProcessPipelineBase):
         # Note: there are no returned values for this method, the result is an update in the self.column_transformations dictionary
 
         for column in df.columns:
-            if df[column].dtype not in ("float", "int"):
+            if not self.check_numeric_column(df[column]):
                 continue
             self.fit_scaler(df[column], standard_scaling=True)
 
