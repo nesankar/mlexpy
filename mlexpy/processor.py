@@ -18,6 +18,75 @@ logger.setLevel(logging.INFO)
 
 
 class ProcessPipelineBase:
+    """
+    Base data processing class.
+
+
+    Attributes
+    ----------
+    process_tag : string
+        The tag to use when storing process relevant models. (ex. column transformers)
+
+    model_dir : Union[string, Path]
+        The path to write to to store all models, if models are going to be stored.
+
+    columns_to_drop : List[str]
+        A list of column names that should be dropped. Stored as an attributed so that it can be updated throughout the object's usage and processing.
+
+    _default_label_encoder : Any
+        The default tool to use to encode any labels, in a categorical setting. By default uses the sklearn label encoder.
+
+    column_transformations : DefaultOrderedDict
+        The ordered dictionary used to store any column based feature transformation that requires a model. For example a standard scaler. We need to fit this standard scaler ONLY on the train data, and then store
+        the scaler model in order to apply it to the testing dataset.
+
+    store_models : bool
+        A boolean to designate if models should be stored or not.
+
+
+    Methods
+    -------
+    make_storage_dir()
+       Used to create a directory at the class attribute model_dir.
+    check_numeric_column(col: pd.Series)
+        Check if a pandas Series is numeric, return True if so.
+    fit_check(model: Any)
+        Check if a model has a fit method -- if so raise a warning that it should be saved.
+    fit_label_encoder(self, all_labels: pd.Series)
+        Fit a label encoder to the provided all_labels data.
+    encode_labels(self, labels: pd.Series)
+        Do the actual label encoding.
+    default_store_model(self, model: Any, model_tag: str)
+        Store a model using the default tooling. This will be a jobilib dump, or the xgboost native store_model capability.
+    default_load_model(self, model_tag: str, model: Optional[Any] = None)
+        Load a model using the default tooling. This will be a joblib load, or a model's native load tooling. Ex. such as in xgboost models.
+    process_data(self, df: pd.DataFrame, training: bool = True)
+        The method to do all data processing. NOTE: This must be overwritten in the child class inheriting this class.
+    drop_columns(self, df: pd.DataFrame)
+        Drop the columns stored in the columns to drop list.
+    keep_columns(df: pd.DataFrame, keep_cols: List[str])
+        Drop all columns NOT in the passed Keep_cols list.
+    set_default_encoder(self, encoder: Any)
+        Set the default label encoder to be any encoder class desired.
+    get_best_cols(self, df: pd.DataFrame, labels: pd.Series, col_count: Optional[int] = None)
+        Perform sklearn's best column selection.
+    fit_scaler(self, feature_data: pd.Series, standard_scaling: bool = True)
+        Fit a scaler model to a column, options include a standard scaler or a min-max scaler
+    fit_model_based_features(self, df: pd.DataFrame)
+        Fit the models based features to the passed dataframe. NOTE: This must be overwritten in the child class inheriting this class.
+    transform_model_based_features(self, df: pd.DataFrame)
+        Perform all transformations of columns according to the entries in teh column_transformation dict, or according to what can be loaded at the provided model_dir.
+    dump_feature_based_models()
+        Store all of the current models performing some feature transformation to disk.
+    load_feature_based_models()
+        Load all of the column transformation models that can be found at the model_dir path.
+
+    Properties
+    ----------
+    label_encoder : LabelEncoder
+        Load the default label encoder, but define it only when initially called upon.
+    """
+
     def __init__(
         self,
         process_tag: str = "_development",
@@ -36,8 +105,6 @@ class ProcessPipelineBase:
         self.model_dir: Path = Path()
         self.columns_to_drop: List[str] = []
         self._default_label_encoder = LabelEncoder
-        self.dataframe_assertion = df_assertion
-        self.series_assertion = series_assertion
         self.column_transformations = DefaultOrderedDict(lambda: [])
         self.store_models = store_models
 
@@ -92,6 +159,10 @@ class ProcessPipelineBase:
                 f"The provided {model} model has a .fit() method. Make sure to store the resulting fit method for proper train test separation."
             )
 
+    def set_default_encoder(self, encoder: Any) -> None:
+        """Set the desired label encoder."""
+        self._default_label_encoder = encoder
+
     @property
     def label_encoder(self) -> Any:
         if not hasattr(self, "_label_encoder"):
@@ -100,12 +171,12 @@ class ProcessPipelineBase:
         return self._label_encoder
 
     def fit_label_encoder(self, all_labels: pd.Series) -> None:
-        self.series_assertion(all_labels)
+        series_assertion(all_labels)
         self.label_encoder.fit(all_labels.values)
         return None
 
     def encode_labels(self, labels: pd.Series) -> pd.Series:
-        self.series_assertion(labels)
+        series_assertion(labels)
         try:
             coded_labels = self.label_encoder.transform(labels.values)
         except NotFittedError:
@@ -155,19 +226,16 @@ class ProcessPipelineBase:
 
     def drop_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """Simply drop the columns that have been cashed in the class."""
-        self.dataframe_assertion(df)
+        df_assertion(df)
         # First do an intersection of the df's columns and those to drop.
         dropping_cols = [col for col in df.columns if col in self.columns_to_drop]
         return df.drop(columns=dropping_cols)
 
-    def keep_columns(self, df: pd.DataFrame, keep_cols: List[str]) -> pd.DataFrame:
-        self.dataframe_assertion(df)
+    @staticmethod
+    def keep_columns(df: pd.DataFrame, keep_cols: List[str]) -> pd.DataFrame:
+        df_assertion(df)
         """Given the defined keep_cols list, drop all other columns"""
         return df[keep_cols]
-
-    def set_default_encoder(self, encoder: Any) -> None:
-        """Set the desired label encoder."""
-        self._default_label_encoder = encoder
 
     def get_best_cols(
         self, df: pd.DataFrame, labels: pd.Series, col_count: Optional[int] = None
