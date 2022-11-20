@@ -119,7 +119,7 @@ if __name__ == "__main__":
         processed_datasets, trained_model, proba=True
     )
     results = experiment_obj.evaluate_predictions(
-        processed_datasets,
+        processed_datasets.test_data.labels,
         predictions=predictions,
         class_probabilities=class_probabilities,
     )
@@ -140,7 +140,7 @@ if __name__ == "__main__":
         loaded_datasets, loaded_model, proba=True
     )
     loaded_results = experiment_obj.evaluate_predictions(
-        loaded_datasets,
+        loaded_datasets.test_data.labels,
         predictions=loaded_predictions,
         class_probabilities=loaded_class_probabilities,
     )

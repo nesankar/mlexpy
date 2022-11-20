@@ -237,7 +237,7 @@ def test_regression_model_match(simple_dataframe, rs_10, rs_20, regression_exper
     # Get the predictions and evaluate the performance.
     predictions = experiment_obj.predict(processed_datasets, trained_model)
     results = experiment_obj.evaluate_predictions(
-        processed_datasets,
+        processed_datasets.test_data.labels,
         predictions=predictions,
     )
 
@@ -250,7 +250,7 @@ def test_regression_model_match(simple_dataframe, rs_10, rs_20, regression_exper
     # Get the predictions and evaluate the performance.
     loaded_predictions = experiment_obj.predict(loaded_datasets, loaded_model)
     loaded_results = experiment_obj.evaluate_predictions(
-        loaded_datasets,
+        loaded_datasets.test_data.labels,
         predictions=loaded_predictions,
     )
 
@@ -278,7 +278,7 @@ def test_regression_model_match(simple_dataframe, rs_10, rs_20, regression_exper
     # Get the predictions and evaluate the performance.
     new_predictions = new_experiment.predict(new_datasets, new_model)
     new_results = new_experiment.evaluate_predictions(
-        new_datasets,
+        new_datasets.test_data.labels,
         predictions=new_predictions,
     )
 
@@ -323,7 +323,7 @@ def test_classification_model_match(
     # Get the predictions and evaluate the performance.
     predictions = experiment_obj.predict(processed_datasets, trained_model)
     results = experiment_obj.evaluate_predictions(
-        processed_datasets,
+        processed_datasets.test_data.labels,
         predictions=predictions,
     )
 
@@ -336,7 +336,7 @@ def test_classification_model_match(
     # Get the predictions and evaluate the performance.
     loaded_predictions = experiment_obj.predict(loaded_datasets, loaded_model)
     loaded_results = experiment_obj.evaluate_predictions(
-        loaded_datasets,
+        loaded_datasets.test_data.labels,
         predictions=loaded_predictions,
     )
 
@@ -371,7 +371,7 @@ def test_classification_model_match(
     # Get the predictions and evaluate the performance.
     new_predictions = new_experiment.predict(new_datasets, new_model)
     new_results = new_experiment.evaluate_predictions(
-        new_datasets,
+        new_datasets.test_data.labels,
         predictions=new_predictions,
     )
 

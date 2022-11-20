@@ -279,7 +279,7 @@ class ClassifierExperimentBase(ExperimentBase):
 
     def evaluate_predictions(
         self,
-        full_setup: ExperimentSetup,
+        labels: Iterable,
         predictions: Iterable,
         class_probabilities: Optional[Iterable] = None,
         baseline_prediction: bool = False,
@@ -300,27 +300,23 @@ class ClassifierExperimentBase(ExperimentBase):
         for name, metric in self.metric_dict.items():
             if "f1" in name:
                 result_dict[name + "_macro"] = metric(
-                    full_setup.test_data.labels, evaluation_prediction, average="macro"
+                    labels, evaluation_prediction, average="macro"
                 )
                 result_dict[name + "_micro"] = metric(
-                    full_setup.test_data.labels, evaluation_prediction, average="micro"
+                    labels, evaluation_prediction, average="micro"
                 )
                 result_dict[name + "_weighted"] = metric(
-                    full_setup.test_data.labels,
+                    labels,
                     evaluation_prediction,
                     average="weighted",
                 )
             else:
                 try:
-                    result_dict[name] = metric(
-                        full_setup.test_data.labels, evaluation_prediction
-                    )
+                    result_dict[name] = metric(labels, evaluation_prediction)
                 except ValueError:
                     # See if we would succeed with using the class probabilities
                     try:
-                        result_dict[name] = metric(
-                            full_setup.test_data.labels, class_probabilities
-                        )
+                        result_dict[name] = metric(labels, class_probabilities)
                     except ValueError:
                         print(f"Unknown issues with the {name} metric evaluation.")
 
@@ -378,7 +374,7 @@ class ClassifierExperimentBase(ExperimentBase):
             )
 
             self.plot_multiclass_roc(
-                full_setup=full_setup,
+                labels=full_setup.test_data.labels,
                 class_probabilities=class_probabilities,
             )
 
@@ -386,7 +382,7 @@ class ClassifierExperimentBase(ExperimentBase):
 
     def plot_multiclass_roc(
         self,
-        full_setup: ExperimentSetup,
+        labels: Iterable,
         class_probabilities: np.ndarray,
         fig_size: Tuple[int, int] = (8, 8),
     ) -> None:
@@ -397,9 +393,7 @@ class ClassifierExperimentBase(ExperimentBase):
         fpr, tpr, roc_auc = {}, {}, {}
 
         # First, calculate all of the explicit class roc curves...
-        y_test_dummies = pd.get_dummies(
-            full_setup.test_data.labels, drop_first=False
-        ).values
+        y_test_dummies = pd.get_dummies(labels, drop_first=False).values
         for i in range(class_count):
             fpr[i], tpr[i], _ = roc_curve(
                 y_test_dummies[:, i], class_probabilities[:, i]
@@ -461,7 +455,7 @@ class RegressionExperimentBase(ExperimentBase):
 
     def evaluate_predictions(
         self,
-        full_setup: ExperimentSetup,
+        labels: Iterable,
         predictions: Iterable,
         class_probabilities: Optional[Iterable] = None,
         baseline_prediction: bool = False,
@@ -480,8 +474,6 @@ class RegressionExperimentBase(ExperimentBase):
         result_dict: Dict[str, float] = {}
         # First test the predictions in the metric dictionary...
         for name, metric in self.metric_dict.items():
-            result_dict[name] = metric(
-                full_setup.test_data.labels, evaluation_prediction
-            )
+            result_dict[name] = metric(labels, evaluation_prediction)
             print(f"\nThe {name} is: {result_dict[name]}")
         return result_dict
