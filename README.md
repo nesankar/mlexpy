@@ -314,10 +314,7 @@ More detailed documentation can be found in the examples, docs, and docstrings i
 ### Roadmap / TODOs:
 - Expand to `numpy.ndarray`s?
 - Test and/or expand to general statistical prediction models. (beyond the `sklearn` framework)
-
-- [ ] Add regression example
-- [ ] Include storage of label encoder + example
-- [ ] Add model usage tests
+- [ ] Should model storage include storage of label encoder + example
 - [ ] docstrings
 - [ ] Add in logic to make sure there are no `"Unnamed: 0"` columns
 
