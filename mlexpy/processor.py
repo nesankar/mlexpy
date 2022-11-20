@@ -88,7 +88,7 @@ class ProcessPipelineBase:
     @staticmethod
     def fit_check(model: Any) -> None:
         if hasattr(model, "fit"):
-            logger.warn(
+            logger.warning(
                 f"The provided {model} model has a .fit() method. Make sure to store the resulting fit method for proper train test separation."
             )
 
