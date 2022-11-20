@@ -2,6 +2,7 @@ import pandas as pd
 from typing import Any, List, Callable, Dict
 import logging
 from pathlib import Path
+import os
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -9,7 +10,7 @@ logger.setLevel(logging.INFO)
 
 
 def make_directory(directory_path: Path) -> None:
-    """Create a directory defiend by the directory path, including creating all intermediate directories.
+    """Create a directory defined by the directory path, including creating all intermediate directories.
 
     Parameters
     ----------
@@ -21,7 +22,8 @@ def make_directory(directory_path: Path) -> None:
     None
     """
     logger.info(f"Creating the directory(s) at {directory_path}.")
-    directory_path.mkdir()
+    logger.info(f"Current directory(s) {Path.cwd()}")
+    os.makedirs(directory_path)
 
 
 def df_assertion(data_structure: Any) -> None:

@@ -8,6 +8,7 @@ from glob import glob
 import logging
 from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler
 from sklearn.feature_selection import SelectKBest
+from sklearn.exceptions import NotFittedError
 from mlexpy.utils import df_assertion, series_assertion, make_directory
 from src.defaultordereddict import DefaultOrderedDict
 
@@ -23,6 +24,7 @@ class ProcessPipelineBase:
         model_dir: Optional[Union[str, Path]] = None,
         model_storage_function: Optional[Callable] = None,
         model_loading_function: Optional[Callable] = None,
+        store_models: bool = True,
     ) -> None:
         """Instantiate the data processing pipeline. Note if for_training is True, then all models used are trained and stored, otherwise they are
         loaded from file using the process tag.
@@ -37,6 +39,7 @@ class ProcessPipelineBase:
         self.dataframe_assertion = df_assertion
         self.series_assertion = series_assertion
         self.column_transformations = DefaultOrderedDict(lambda: [])
+        self.store_models = store_models
 
         # Set up any model IO
         if not model_storage_function:
@@ -103,7 +106,15 @@ class ProcessPipelineBase:
 
     def encode_labels(self, labels: pd.Series) -> pd.Series:
         self.series_assertion(labels)
-        coded_labels = self.label_encoder.transform(labels.values)
+        try:
+            coded_labels = self.label_encoder.transform(labels.values)
+        except NotFittedError:
+            # Need to first do the encoder fitting
+            logger.warn(
+                "The label encoder has not been fit. The current encoder is being fit on the TRAINING data."
+            )
+            self.fit_label_encoder(labels)
+            coded_labels = self.label_encoder.transform(labels.values)
         return pd.Series(coded_labels, name=labels.name, index=labels.index)
 
     def default_store_model(self, model: Any, model_tag: str) -> None:
@@ -210,6 +221,10 @@ class ProcessPipelineBase:
         feature model.
         """
 
+        # By default, store all models when performing a transformation
+        if self.store_models:
+            self.dump_feature_based_models()
+
         result_df = pd.DataFrame(index=df.index)
 
         if len(self.column_transformations) == 0:
@@ -247,6 +262,7 @@ class ProcessPipelineBase:
 
         Use a process/indexed-column_name/indexed-model structure in-order to maintain the ordering.
         """
+        # By default, dump the models to storage.
         self.make_storage_dir()
         # Iterate through the columns_transformer dict, storing each model and column. Use a method wide indexer
         idx = 0
