@@ -20,6 +20,20 @@ def simple_dataframe() -> pd.DataFrame:
 
 
 @pytest.fixture()
+def simple_binary_dataframe() -> pd.DataFrame:
+    var_1 = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    var_2 = [0, 2, 1, 2, 3, 1, 2, 3, 4, 1]
+
+    target = ["a", "a", "a", "a", "a", "a", "b", "b", "b", "b"]
+
+    return pd.DataFrame(
+        zip(var_1, var_2, target),
+        columns=["obs1", "obs2", "target"],
+        index=list(range(len(var_1))),
+    )
+
+
+@pytest.fixture()
 def simple_series(simple_dataframe) -> pd.Series:
     return simple_dataframe["target"]
 
@@ -27,7 +41,7 @@ def simple_series(simple_dataframe) -> pd.Series:
 @pytest.fixture()
 def base_processor() -> processor.ProcessPipelineBase:
     """Create a base data processor class to test."""
-    return processor.ProcessPipelineBase()
+    return processor.ProcessPipelineBase(store_models=False)
 
 
 @pytest.fixture()
