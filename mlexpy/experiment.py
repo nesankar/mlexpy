@@ -6,7 +6,7 @@ import logging
 from joblib import dump, load
 import sys
 from pathlib import Path
-from typing import Dict, Optional, Any, Iterable, Callable, Union, Tuple
+from typing import Dict, Optional, Any, Callable, Union, Tuple
 
 from sklearn.metrics import (
     balanced_accuracy_score,
@@ -136,7 +136,7 @@ class ExperimentBase:
 
     def predict(
         self, full_setup: ExperimentSetup, model: Any, proba: bool = False
-    ) -> Any:
+    ) -> np.ndarray:
         if proba:
             return model.predict_proba(full_setup.test_data.obs)
         else:
@@ -144,10 +144,10 @@ class ExperimentBase:
 
     def evaluate_predictions(
         self,
-        full_setup: ExperimentSetup,
-        predictions: Iterable,
-        class_probabilities: Optional[Iterable] = None,
-        baseline_prediction: bool = False,
+        full_setup: Union[pd.Series, np.ndarray],
+        predictions: Union[pd.Series, np.ndarray],
+        class_probabilities: Optional[np.ndarray] = None,
+        baseline_value: Optional[Union[float, int]] = False,
     ) -> Dict[str, float]:
         raise NotImplementedError("This needs to be implemented in the child class.")
 
@@ -266,7 +266,6 @@ class ClassifierExperimentBase(ExperimentBase):
             model_tag,
             process_tag,
         )
-        self.baseline_value = None  # to be implemented in the child class
         self.standard_metric = "f1_macro"
         self.metric_dict = {
             "f1": f1_score,
@@ -279,19 +278,15 @@ class ClassifierExperimentBase(ExperimentBase):
 
     def evaluate_predictions(
         self,
-        labels: Iterable,
-        predictions: Iterable,
-        class_probabilities: Optional[Iterable] = None,
-        baseline_prediction: bool = False,
+        labels: Union[pd.Series, np.ndarray],
+        predictions: Union[pd.Series, np.ndarray],
+        class_probabilities: Optional[np.ndarray] = None,
+        baseline_value: Optional[Union[float, int]] = None,
     ) -> Dict[str, float]:
         """Evaluate all predictions, and return the results in a dict"""
 
-        if baseline_prediction:
-            if not self.baseline_value:
-                raise ValueError(
-                    "No baseline value was provided to the class and a baseline evaluation was called. Either set a baseline value or pass baseline_prediction=False to evaluate_predictions method."
-                )
-            evaluation_prediction = self.baseline_value
+        if baseline_value:
+            evaluation_prediction = np.repeat(baseline_value, len(labels))
         else:
             evaluation_prediction = predictions
 
@@ -382,7 +377,7 @@ class ClassifierExperimentBase(ExperimentBase):
 
     def plot_multiclass_roc(
         self,
-        labels: Iterable,
+        labels: Union[pd.Series, np.ndarray],
         class_probabilities: np.ndarray,
         fig_size: Tuple[int, int] = (8, 8),
     ) -> None:
@@ -446,7 +441,6 @@ class RegressionExperimentBase(ExperimentBase):
             model_tag,
             process_tag,
         )
-        self.baseline_value = None
         self.standard_metric = "neg_root_mean_squared_error"
         self.metric_dict = {
             "mse": mean_squared_error,
@@ -455,19 +449,15 @@ class RegressionExperimentBase(ExperimentBase):
 
     def evaluate_predictions(
         self,
-        labels: Iterable,
-        predictions: Iterable,
-        class_probabilities: Optional[Iterable] = None,
-        baseline_prediction: bool = False,
+        labels: Union[pd.Series, np.ndarray],
+        predictions: Union[pd.Series, np.ndarray],
+        class_probabilities: Optional[np.ndarray] = None,
+        baseline_value: Optional[Union[float, int]] = None,
     ) -> Dict[str, float]:
         """Evaluate all predictions, and return the results in a dict"""
 
-        if baseline_prediction:
-            if not self.baseline_value:
-                raise ValueError(
-                    "No baseline value was provided to the class and a baseline evaluation was called. Either set a baseline value or pass baseline_prediction=False to evaluate_predictions method."
-                )
-            evaluation_prediction = self.baseline_value
+        if baseline_value:
+            evaluation_prediction = np.repeat(baseline_value, len(labels))
         else:
             evaluation_prediction = predictions
 

@@ -234,7 +234,15 @@ if __name__ == "__main__":
     # Add our custom metric
     experiment_obj.add_metric(ave_abs_pct_error, "avg_abs_pct_error")
 
+    print("Evaluation against predictions:")
     results = experiment_obj.evaluate_predictions(
         processed_datasets.test_data.labels,
         predictions=predictions,
+    )
+
+    print("\n\nEvaluation against a baseline train_data label mean:")
+    results = experiment_obj.evaluate_predictions(
+        processed_datasets.test_data.labels,
+        predictions=predictions,
+        baseline_value=processed_datasets.train_data.labels.mean(),
     )
