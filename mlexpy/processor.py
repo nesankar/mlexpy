@@ -143,24 +143,63 @@ class ProcessPipelineBase:
             self.model_dir = model_dir / self.process_tag
 
     def make_storage_dir(self) -> None:
-        """If we dont yet have the storage directory, make it now"""
+        """Create the directory of the mode_dir class attribute.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
         if not self.model_dir.is_dir():
             make_directory(self.model_dir)
 
     @staticmethod
     def check_numeric_column(col: pd.Series) -> bool:
-        """Simply check if a column is numeric"""
+        """Simply check if a column is numeric.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
         return is_numeric_dtype(col)
 
     @staticmethod
     def fit_check(model: Any) -> None:
+        """Check if a model has a .fit() method, and if so lof that the model exists and that it should be stored to file.
+
+        Parameters
+        ----------
+        model : Any
+            A model that is checked for a fit method. Note, this needs to be a class.
+
+        Returns
+        -------
+        None
+        """
         if hasattr(model, "fit"):
             logger.warning(
                 f"The provided {model} model has a .fit() method. Make sure to store the resulting fit method for proper train test separation."
             )
 
     def set_default_encoder(self, encoder: Any) -> None:
-        """Set the desired label encoder."""
+        """Set the desired label encoder.
+
+        Parameters
+        ----------
+        encoder : Any
+            The encoder that is to be set as the current default encoder.
+
+        Returns
+        -------
+        None
+        """
         self._default_label_encoder = encoder
 
     @property
@@ -171,11 +210,33 @@ class ProcessPipelineBase:
         return self._label_encoder
 
     def fit_label_encoder(self, all_labels: pd.Series) -> None:
+        """Fit the designated label encoder stored in the .label_encoder() property.
+
+        Parameters
+        ----------
+        all_labels : pd.Series
+            The data that is going to be encoded, stored as a Pandas Series.
+
+        Returns
+        -------
+        None
+        """
         series_assertion(all_labels)
         self.label_encoder.fit(all_labels.values)
         return None
 
     def encode_labels(self, labels: pd.Series) -> pd.Series:
+        """Perform the actual label encoding.
+
+        Parameters
+        ----------
+        all_labels : pd.Series
+            The data that is going to be encoded, stored as a Pandas Series.
+
+        Returns
+        -------
+        pd.Series
+        """
         series_assertion(labels)
         try:
             coded_labels = self.label_encoder.transform(labels.values)
@@ -190,7 +251,20 @@ class ProcessPipelineBase:
 
     def default_store_model(self, model: Any, model_tag: str) -> None:
         """Given a calculated model, store it locally using joblib.
+
         Longer term/other considerations can be found here: https://scikit-learn.org/stable/model_persistence.html
+
+        Parameters
+        ----------
+        model : Any
+            The model that is to be stored
+
+        model_tag : str
+            The string tag to associate with this specific model.
+
+        Returns
+        -------
+        None
         """
         self.make_storage_dir()
 
@@ -206,8 +280,22 @@ class ProcessPipelineBase:
         logger.info(f"Dumped {model_tag} to: {model_path}")
 
     def default_load_model(self, model_tag: str, model: Optional[Any] = None) -> Any:
-        """Given a model name, load it from storage."""
+        """Given a model name, load it from storage
 
+        Longer term/other considerations can be found here: https://scikit-learn.org/stable/model_persistence.html
+
+        Parameters
+        ----------
+        model_tag : str
+            The string tag to associate with this specific model.
+
+        model : Optional[Any]
+            The model to load. This is optional for a case where a model is instantiated, and then loaded from file in to the provided model instance.
+
+        Returns
+        -------
+        Any (the model type loaded)
+        """
         if hasattr(model, "load_model") and model:
             # use the model's loading utilities -- specifically beneficial with xgboost
             logger.info(f"Found a load_model method in {model}")
@@ -221,11 +309,59 @@ class ProcessPipelineBase:
         return loaded_model
 
     def process_data(self, df: pd.DataFrame, training: bool = True) -> pd.DataFrame:
-        """Perform here all steps of the data processing for feature engineering."""
+        """Perform here all steps of the data processing for feature engineering
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            The input to-be-processed dataset.
+
+        training : bool
+            A boolean declaring if this is training or testing dataset. For testing, we will only APPLY any transformations (not fit them).
+
+        Returns
+        -------
+        pd.DataFrame
+
+        Notes
+        -----
+        Example structure to define in the child class:
+
+            def process_data(self, df: pd.DataFrame, training: bool = True) -> pd.DataFrame:
+                # Do a copy of the passed df
+                df = df.copy()
+
+                <DO ANY HARD-CODEABLE FEATURE ENGINEERING HERE (DOES NOT REQUIRE LEARNING ON THE TRAINING SET)>
+
+                # Now perform the training / testing dependent feature processing. This is why a `training` boolean is passed.
+                if training:
+                    # Now FIT all of the model based features (ex. scaling, imputing)...
+                    self.fit_model_based_features(df)
+                    # ... and get the results of a transformation of all model based features.
+                    model_features = self.transform_model_based_features(df)
+                else:
+                    # Here we can ONLY apply the transformation
+                    model_features = self.transform_model_based_features(df)
+
+                <DO ANY FINAL STEPS HERE, EX. COLUMN FILTERING, ETC.
+
+                return model_features
+
+        """
         raise NotImplementedError("This needs to be implemented in the child class.")
 
     def drop_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Simply drop the columns that have been cashed in the class."""
+        """Simply drop the columns that have been cashed in the class.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            The dataframe that we want to drop columns on.
+
+        Returns
+        -------
+        pd.DataFrame
+        """
         df_assertion(df)
         # First do an intersection of the df's columns and those to drop.
         dropping_cols = [col for col in df.columns if col in self.columns_to_drop]
@@ -234,14 +370,42 @@ class ProcessPipelineBase:
     @staticmethod
     def keep_columns(df: pd.DataFrame, keep_cols: List[str]) -> pd.DataFrame:
         df_assertion(df)
-        """Given the defined keep_cols list, drop all other columns"""
+        """Given the defined keep_cols list, drop all other columns
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            The dataframe that we want to drop columns on.
+
+        keep_cols : List[str]
+            The list of columns names that we want to KEEP in the df.
+
+        Returns
+        -------
+        pd.DataFrame
+        """
         return df[keep_cols]
 
     def get_best_cols(
         self, df: pd.DataFrame, labels: pd.Series, col_count: Optional[int] = None
     ) -> None:
-        """Compute the most informative columns, and then cache the rest in the to drop columns."""
+        """Compute the most informative columns, and then cache the rest in the to drop columns.
 
+        Parameters
+        ----------
+        df : pd.DataFrame
+            The dataframe that we want to use as the features or observations.
+
+        labels : pd.Series
+            The true labels for the respective df. Needed because we use sklearn's SelectKBest class.
+
+        col_count : Optional[int]
+            The number of columns we want to keep, Ie. we keep the col_count most informative columns. If nothing passed, the best 50% of columns are used.
+
+        Returns
+        -------
+        None
+        """
         # If no col_count, default to the best 50%
         if not col_count:
             total_columns = len(df.columns)
@@ -257,7 +421,20 @@ class ProcessPipelineBase:
     def fit_scaler(
         self, feature_data: pd.Series, standard_scaling: bool = True
     ) -> None:
-        """Perform the feature scaling here. If this a prediction method, then load and fit."""
+        """Perform the feature scaling here. If this a prediction method, then load and fit.
+
+        Parameters
+        ----------
+        feature_data : pd.Series
+            The data we would like to scale provided as a pandas Series.
+
+        standard_scaling : bool
+            A boolean flag for if standard scaling should be used or not. If passed as False, then min-max scaling is used.
+
+        Returns
+        -------
+        None
+        """
 
         if standard_scaling:
             logger.info(f"Fitting a standard scaler to {feature_data.name}.")
@@ -272,12 +449,41 @@ class ProcessPipelineBase:
 
     def fit_model_based_features(self, df: pd.DataFrame) -> None:
         """Here do all feature engineering that requires models to be fit to the data, such as, scaling, on-hot-encoding,
-        PCA, etc.
+        PCA, imputing, etc.
 
         The goal is to arrange these in a manner that makes them easily reproducible, easily understandable, and persist-able.
 
         Each process performed here is stored in the column_transformations dictionary, with ordering with the default key a list.
         The processes in this dictionary will be passed over IN ORDER on the test df to generate the test dataset.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            The data we would like to fit models to, as a data frame.
+
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        Example structure to define in the child class:
+
+            def fit_model_based_features(self, df: pd.DataFrame) -> None:
+                # In this case, simply fit a standard (normalization) scaler to the NUMERICAL columns.
+                # This case will result in additional columns on the dataframe named as
+                # "<original-column-name>_standardscaler()".
+
+                # Note: there are no returned values for this method, the result is an update in the self.column_transformations dictionary
+
+                for column in df.columns:
+                    if not self.check_numeric_column(df[column]):
+                        continue
+                    self.fit_scaler(df[column], standard_scaling=True)
+
+
+
+
         """
         raise NotImplementedError("This needs to be implemented in the child class.")
 
@@ -285,8 +491,17 @@ class ProcessPipelineBase:
         """Here apply all model based feature engineering models, previously fit with the fit_model_based_features method.
 
         The goal is to simply call this method, and perform a single, ordered set of operations on a dataset to provide
-        feature engineering with models and no risk of test set training, AND the ability to load a previously trained
+        feature engineering with models with no risk of test set training, AND the ability to load a previously trained
         feature model.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            The data we would like to performe the model transformation on as a data frame.
+
+        Returns
+        -------
+        pd.DataFrame
         """
 
         # By default, store all models when performing a transformation
@@ -329,6 +544,14 @@ class ProcessPipelineBase:
         """Given the ordered dict of the model based features, dump each model, with the name of the model in the column_transformation dict.
 
         Use a process/indexed-column_name/indexed-model structure in-order to maintain the ordering.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
         """
         # By default, dump the models to storage.
         self.make_storage_dir()
@@ -350,7 +573,16 @@ class ProcessPipelineBase:
                 idx += 1
 
     def load_feature_based_models(self) -> DefaultOrderedDict[str, List[Any]]:
-        """Given the process tag used to instantiate the class, load all models used for feature generation."""
+        """Given the process tag used to instantiate the class, load all models used for feature generation.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        DefaultOrderedDict
+        """
 
         # First, get all files
         all_files = glob(f"{self.model_dir}/**/**")
