@@ -162,7 +162,8 @@ class ProcessPipelineBase:
 
         Parameters
         ----------
-        None
+        col : pd.Series
+            The data to check, as a pandas Series.
 
         Returns
         -------
@@ -346,7 +347,6 @@ class ProcessPipelineBase:
                 <DO ANY FINAL STEPS HERE, EX. COLUMN FILTERING, ETC.
 
                 return model_features
-
         """
         raise NotImplementedError("This needs to be implemented in the child class.")
 
@@ -435,7 +435,6 @@ class ProcessPipelineBase:
         -------
         None
         """
-
         if standard_scaling:
             logger.info(f"Fitting a standard scaler to {feature_data.name}.")
             scaler = StandardScaler()
@@ -480,10 +479,6 @@ class ProcessPipelineBase:
                     if not self.check_numeric_column(df[column]):
                         continue
                     self.fit_scaler(df[column], standard_scaling=True)
-
-
-
-
         """
         raise NotImplementedError("This needs to be implemented in the child class.")
 
@@ -503,7 +498,6 @@ class ProcessPipelineBase:
         -------
         pd.DataFrame
         """
-
         # By default, store all models when performing a transformation
         if self.store_models:
             self.dump_feature_based_models()
@@ -583,7 +577,6 @@ class ProcessPipelineBase:
         -------
         DefaultOrderedDict
         """
-
         # First, get all files
         all_files = glob(f"{self.model_dir}/**/**")
 
