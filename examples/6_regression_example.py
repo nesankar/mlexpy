@@ -199,6 +199,7 @@ if __name__ == "__main__":
         label_data=labels,
         test_frac=args.test_frac,
         random_state=process_rs,
+        stratify=False,
     )
     # Define the experiment
     experiment_obj = DiabetesExperiment(

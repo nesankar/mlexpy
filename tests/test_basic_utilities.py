@@ -57,12 +57,18 @@ def test_train_split(simple_dataframe):
 
     rs1 = np.random.RandomState(10)
     first_split = pipeline_utils.get_stratified_train_test_data(
-        simple_dataframe[["obs1", "obs2"]], simple_dataframe["target"], random_state=rs1
+        simple_dataframe[["obs1", "obs2"]],
+        simple_dataframe["target"],
+        random_state=rs1,
+        stratify=False,
     )
 
     rs2 = np.random.RandomState(10)
     second_split = pipeline_utils.get_stratified_train_test_data(
-        simple_dataframe[["obs1", "obs2"]], simple_dataframe["target"], random_state=rs2
+        simple_dataframe[["obs1", "obs2"]],
+        simple_dataframe["target"],
+        random_state=rs2,
+        stratify=False,
     )
 
     # Assert that we create 2 identical training sets when using the same data, and the same random seed.
@@ -76,6 +82,7 @@ def test_train_split(simple_dataframe):
         simple_dataframe["target"],
         random_state=rs1,
         test_frac=0.5,
+        stratify=False,
     )
 
     # Assert that if we use a test frac of 50%, we get a dataframe of exactly half the size passed for the training set
@@ -88,6 +95,7 @@ def test_train_split(simple_dataframe):
         simple_dataframe["target"],
         random_state=rs1,
         test_frac=1,
+        stratify=False,
     )
 
     # Assert that the special case of test_frac=1 results in no training data...

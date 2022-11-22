@@ -218,6 +218,7 @@ def test_regression_model_match(simple_dataframe, rs_10, rs_20, regression_exper
         simple_dataframe["target"],
         test_frac=0.5,
         random_state=rs_20,
+        stratify=False,
     )
     experiment_obj = regression_experiment(
         train_setup=dataset.train_data,
