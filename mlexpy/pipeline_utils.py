@@ -22,10 +22,31 @@ def get_stratified_train_test_data(
     label_data: pd.Series,
     random_state: np.random.RandomState,
     test_frac: float = 0.3,
-    stratify: bool = False,
+    stratify: bool = True,
 ) -> ExperimentSetup:
-    """Perform some structured training and testing splitting. Default to stratified splitting."""
+    """Perform a structured training and testing split of a dataset.
 
+    Parameters
+    ----------
+    train_data : pd.DataFrame
+        The dataframe containing our feature data.
+
+    label_data : pd.Series
+        The labels or targets associated with the respective training dataframe.
+
+    random_state : np.random.RandomState
+        The random state to use to perform the splitting.
+
+    test_frac : float
+        The fraction of data that you want to use for testing. NOTE: if 1, then only test data will be returned (at it will be the entire dataset).
+
+    stratify : bool
+        A boolean to designate if the splitting should be stratified.
+
+    Returns
+    -------
+    ExperimentSetup
+    """
     # First, test to see if the test frac is 1. Essentially this is to initialize a dataset ONLY for testing.
     if test_frac == 1:
         return ExperimentSetup(
@@ -52,8 +73,21 @@ def get_stratified_train_test_data(
 
 
 def cv_report(results: Dict[str, Any], n_top: int = 5) -> None:
-    # Utility to print CV results from sklearn.
 
+    """Print out a cross validation result following sklearn cross validation.
+
+    Parameters
+    ----------
+    results : Dict[str, Any]
+        The dictionary storing cross validation result models, and performance statistics.
+
+    n_top : int
+        The defined number of n top performing results to print out.
+
+    Returns
+    -------
+    None
+    """
     for i in range(1, n_top + 1):
         candidates = np.flatnonzero(results["rank_test_score"] == i)
         for candidate in candidates:
