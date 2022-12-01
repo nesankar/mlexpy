@@ -6,7 +6,12 @@ import sys
 from pathlib import Path
 from glob import glob
 import logging
-from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler
+from sklearn.preprocessing import (
+    LabelEncoder,
+    StandardScaler,
+    MinMaxScaler,
+    OneHotEncoder,
+)
 from sklearn.feature_selection import SelectKBest
 from sklearn.exceptions import NotFittedError
 from mlexpy.utils import df_assertion, series_assertion, make_directory
@@ -446,6 +451,28 @@ class ProcessPipelineBase:
         # Store the fit scaler to apply to the testing data.
         self.column_transformations[feature_data.name].append(scaler)
 
+    def fit_one_hot_encoding(
+        self,
+        feature_data: pd.Series,
+    ) -> None:
+        """Perform one-hot encoding here. If this a prediction method, then load and fit.
+
+        Parameters
+        ----------
+        feature_data : pd.Series
+            The data we would like to scale provided as a pandas Series.
+
+        Returns
+        -------
+        None
+        """
+        logger.info(f"Fitting a standard scaler to {feature_data.name}.")
+        onehoter = OneHotEncoder(handle_unknown="ignore")
+
+        onehoter.fit(feature_data.values.reshape(-1, 1))
+        # Store the fit scaler to apply to the testing data.
+        self.column_transformations[feature_data.name].append(onehoter)
+
     def fit_model_based_features(self, df: pd.DataFrame) -> None:
         """Here do all feature engineering that requires models to be fit to the data, such as, scaling, on-hot-encoding,
         PCA, imputing, etc.
@@ -528,9 +555,29 @@ class ProcessPipelineBase:
                 continue
             for i, transformation in enumerate(transformations):
                 logger.info(f"Applying the {transformation} to {column}")
-                result_df[
-                    f"{column}_{transformation.__str__().lower()}"
-                ] = transformation.transform(df[column].values.reshape(-1, 1))
+                transformed_result = transformation.transform(
+                    df[column].values.reshape(-1, 1)
+                )
+                if transformed_result.shape[0] > 1:
+                    # Then the resulting transformation is a matrix (ex. one hot encoding)
+                    if hasattr(transformation, "get_feature_names_out"):
+                        columns = transformation.get_feature_names_out()
+                    else:
+                        columns = list(range(len(transformed_result.shape[1])))
+                    transformed_df = pd.DataFrame(
+                        transformed_result,
+                        columns=columns,
+                        index=df.index,
+                    )
+                    transformed_df.columns = [
+                        f"{column}_{transformation.__str__().lower()}_{col}"
+                        for col in transformed_df.columns
+                    ]
+                    result_df = pd.concat([result_df, transformed_df])
+                else:
+                    result_df[
+                        f"{column}_{transformation.__str__().lower()}"
+                    ] = transformation_result
 
         return pd.concat([df, result_df], axis=1)
 
