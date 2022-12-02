@@ -41,13 +41,12 @@ class ProcessPipelineBase:
     _default_label_encoder : Any
         The default tool to use to encode any labels, in a categorical setting. By default uses the sklearn label encoder.
 
-    column_transformations : DefaultOrderedDict
-        The ordered dictionary used to store any column based feature transformation that requires a model. For example a standard scaler. We need to fit this standard scaler ONLY on the train data, and then store
-        the scaler model in order to apply it to the testing dataset.
+    data_transformations : DefaultOrderedDict
+        The ordered dictionary used to store any dataset based feature transformation that requires a model. For example a PCA model, or standard scaling to a column.
+        We need to fit this PCA model ONLY on the train data, and then store the PCA model in order to apply it to the testing dataset.
 
     store_models : bool
         A boolean to designate if models should be stored or not.
-
 
     Methods
     -------
@@ -75,6 +74,8 @@ class ProcessPipelineBase:
         Set the default label encoder to be any encoder class desired.
     get_best_cols(self, df: pd.DataFrame, labels: pd.Series, col_count: Optional[int] = None)
         Perform sklearn's best column selection.
+    fit_data_model(self, model: Any, feature_data: Union[pd.DataFrame, pd.Series], fit_method_name: str = "fit")
+        Perform the data fitting and respective model storage.
     fit_scaler(self, feature_data: pd.Series, standard_scaling: bool = True)
         Fit a scaler model to a column, options include a standard scaler or a min-max scaler
     fit_model_based_features(self, df: pd.DataFrame)
@@ -108,9 +109,8 @@ class ProcessPipelineBase:
 
         self.process_tag = process_tag
         self.model_dir: Path = Path()
-        self.columns_to_drop: List[str] = []
         self._default_label_encoder = LabelEncoder
-        self.column_transformations = DefaultOrderedDict(lambda: [])
+        self.data_transformations = DefaultOrderedDict(lambda: [])
         self.store_models = store_models
 
         # Set up any model IO
@@ -355,13 +355,16 @@ class ProcessPipelineBase:
         """
         raise NotImplementedError("This needs to be implemented in the child class.")
 
-    def drop_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Simply drop the columns that have been cashed in the class.
+    def drop_columns(self, df: pd.DataFrame, cols_to_drop: List[str]) -> pd.DataFrame:
+        """Simply drop the columns that are passed to the method.
 
         Parameters
         ----------
         df : pd.DataFrame
             The dataframe that we want to drop columns on.
+
+        cols_to_drop : List[str]
+            The list of columns names that we want to drop.
 
         Returns
         -------
@@ -369,7 +372,7 @@ class ProcessPipelineBase:
         """
         df_assertion(df)
         # First do an intersection of the df's columns and those to drop.
-        dropping_cols = [col for col in df.columns if col in self.columns_to_drop]
+        dropping_cols = [col for col in df.columns if col in cols_to_drop]
         return df.drop(columns=dropping_cols)
 
     @staticmethod
@@ -391,37 +394,51 @@ class ProcessPipelineBase:
         """
         return df[keep_cols]
 
-    def get_best_cols(
-        self, df: pd.DataFrame, labels: pd.Series, col_count: Optional[int] = None
+    def fit_data_model(
+        self,
+        model: Any,
+        feature_data: Union[pd.DataFrame, pd.Series],
+        fit_method_name: str = "fit",
     ) -> None:
-        """Compute the most informative columns, and then cache the rest in the to drop columns.
+        """Do all model fitting here in a dataset (or subset) WIDE manner, such as dimensionallity reduction.
+        This guarantees that all models will be stored, dumped, and reloaded correctly, and convieniently.
 
         Parameters
         ----------
-        df : pd.DataFrame
-            The dataframe that we want to use as the features or observations.
+        model : Any
+            This is the instanciated model that you would like to fit to the data. Ex. an instanciated standard scaler.
 
-        labels : pd.Series
-            The true labels for the respective df. Needed because we use sklearn's SelectKBest class.
+        feature_data : pd.DataFrame
+            This is the DataFrame that you would like to apply the model to.
 
-        col_count : Optional[int]
-            The number of columns we want to keep, Ie. we keep the col_count most informative columns. If nothing passed, the best 50% of columns are used.
+        fit_method_name : str
+            This is the name of the method to use to fit the model provided to the method. By default this will jsut be "fit"
+            but for customizeability, this can be any name.
 
         Returns
         -------
         None
         """
-        # If no col_count, default to the best 50%
-        if not col_count:
-            total_columns = len(df.columns)
-            col_count = min(total_columns, total_columns // 2)
+        if not hasattr(model, fit_method_name):
+            raise NameError(
+                f"The {model} model has no {fit_method_name} method to use to fit a model."
+            )
+        fit_call = getattr(model, fit_method_name)
 
-        selector = SelectKBest(k=col_count)
-        selector = selector.fit(df, labels)
+        # Now perform the fitting according to the respective datatype provided.
+        if isinstance(feature_data, pd.DataFrame):
+            fit_call(feature_data.values)
+            self.data_transformations["~~".join(feature_data.columns)].append(model)
+        elif isinstance(feature_data, pd.Series):
+            fit_call(feature_data.values.reshape(-1, 1))
+            self.data_transformations[feature_data.name].append(model)
+        else:
+            logger.warning(
+                f"The data to fit was not a pandas dataframe or series: {type(feature_data)}. Skipping and not applying the {model} model."
+            )
 
-        self.columns_to_drop.extend(
-            [col for col in df.columns if col not in selector.get_feature_names_out()]
-        )
+        # Store the fit scaler to apply to the testing data.
+        self.data_transformations["~~".join(feature_data.columns)].append(model)
 
     def fit_scaler(
         self, feature_data: pd.Series, standard_scaling: bool = True
@@ -447,9 +464,7 @@ class ProcessPipelineBase:
             logger.info(f"Fitting a minmax scaler to {feature_data.name}.")
             scaler = MinMaxScaler()
 
-        scaler.fit(feature_data.values.reshape(-1, 1))
-        # Store the fit scaler to apply to the testing data.
-        self.column_transformations[feature_data.name].append(scaler)
+        self.fit_data_model(scaler, feature_data)
 
     def fit_one_hot_encoding(
         self,
@@ -466,12 +481,26 @@ class ProcessPipelineBase:
         -------
         None
         """
-        logger.info(f"Fitting a standard scaler to {feature_data.name}.")
+        logger.info(f"Fitting a one-hot-encoder to {feature_data.name}.")
         onehoter = OneHotEncoder(handle_unknown="ignore")
+        self.fit_data_model(onehoter, feature_data)
 
-        onehoter.fit(feature_data.values.reshape(-1, 1))
-        # Store the fit scaler to apply to the testing data.
-        self.column_transformations[feature_data.name].append(onehoter)
+    def drop_coorelated_columns(
+        self, df: pd.DataFrame, thresh: Optional[float] = None
+    ) -> None:
+        """Drop any of the coorelated columns according to the column_coor_thresh"""
+
+        if thresh is None:
+            thresh = self.column_coor_thresh
+
+        coorelation_columns = self.get_coorelation_columns(df, thresh)
+        logger.info(f"The coorelated column pairs are: {coorelation_columns}")
+
+        cols_to_drop = [col[1] for col in coorelation_columns]
+
+        logger.info(f"Dropping: {cols_to_drop}")
+
+        return self.drop_columns(df, cols_to_drop)
 
     def fit_model_based_features(self, df: pd.DataFrame) -> None:
         """Here do all feature engineering that requires models to be fit to the data, such as, scaling, on-hot-encoding,
@@ -479,7 +508,7 @@ class ProcessPipelineBase:
 
         The goal is to arrange these in a manner that makes them easily reproducible, easily understandable, and persist-able.
 
-        Each process performed here is stored in the column_transformations dictionary, with ordering with the default key a list.
+        Each process performed here is stored in the data_transformations dictionary, with ordering with the default key a list.
         The processes in this dictionary will be passed over IN ORDER on the test df to generate the test dataset.
 
         Parameters
@@ -496,16 +525,19 @@ class ProcessPipelineBase:
         Example structure to define in the child class:
 
             def fit_model_based_features(self, df: pd.DataFrame) -> None:
-                # In this case, simply fit a standard (normalization) scaler to the NUMERICAL columns.
+                # In this case, simply fit a standard (normalization) scaler to the NUMERICAL columns,
+                # and a custom model we have developed (commented for copy pasting.)
                 # This case will result in additional columns on the dataframe named as
                 # "<original-column-name>_standardscaler()".
 
-                # Note: there are no returned values for this method, the result is an update in the self.column_transformations dictionary
+                # Note: there are no returned values for this method, the result is an update in the self.data_transformations dictionary
 
+
+                # my_custom_model = CustomModel()
                 for column in df.columns:
-                    if not self.check_numeric_column(df[column]):
-                        continue
-                    self.fit_scaler(df[column], standard_scaling=True)
+                    if self.check_numeric_column(df[column]):
+                        self.fit_scaler(df[column], standard_scaling=True)
+                        self.fit_model(my_custom_data, df[column])
         """
         raise NotImplementedError("This needs to be implemented in the child class.")
 
@@ -519,7 +551,7 @@ class ProcessPipelineBase:
         Parameters
         ----------
         df : pd.DataFrame
-            The data we would like to performe the model transformation on as a data frame.
+            The data we would like to perform the model transformation on as a data frame.
 
         Returns
         -------
@@ -531,7 +563,7 @@ class ProcessPipelineBase:
 
         result_df = pd.DataFrame(index=df.index)
 
-        if len(self.column_transformations) == 0:
+        if len(self.data_transformations) == 0:
             # First, check to see if there might be any files to load
             try:
                 self.load_feature_based_models()
@@ -544,7 +576,7 @@ class ProcessPipelineBase:
                 )
                 return df
 
-        for column, transformations in self.column_transformations.items():
+        for column, transformations in self.data_transformations.items():
             if "Unnamed:" in column:
                 # We never want to use this column
                 continue
@@ -598,7 +630,7 @@ class ProcessPipelineBase:
         self.make_storage_dir()
         # Iterate through the columns_transformer dict, storing each model and column. Use a method wide indexer
         idx = 0
-        for column, transformations in self.column_transformations.items():
+        for column, transformations in self.data_transformations.items():
             column_process_model_dir = self.model_dir / column
             if not column_process_model_dir.is_dir():
                 make_directory(column_process_model_dir)
@@ -636,9 +668,9 @@ class ProcessPipelineBase:
         # Now, sort this list by the index value (the second item in each sub-list)
         file_ordering.sort(key=lambda entry: entry[1])
 
-        # Finally, iterate through this file ordering, load the models and store correctly in the column_transformations_dict
+        # Finally, iterate through this file ordering, load the models and store correctly in the data_transformations_dict
         for file_pair in file_ordering:
             file = file_pair[0]
             column_name = file.split("/")[-2]
             model = load(file)
-            self.column_transformations[column_name].append(model)
+            self.data_transformations[column_name].append(model)
