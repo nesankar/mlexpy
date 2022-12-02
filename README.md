@@ -1,5 +1,5 @@
 # mlexpy
-### WIP updated 2022-11-14
+### WIP updated 2022-11-30
 Simple utilities for handling and managing exploratory and experimental machine learning development.
 
 ## Introduction: 
