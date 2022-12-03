@@ -1,6 +1,6 @@
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
-from typing import List, Any, Union, Optional, Callable, Tuple
+from typing import List, Any, Union, Optional, Callable
 from joblib import dump, load
 import sys
 from pathlib import Path
@@ -20,6 +20,62 @@ from src.defaultordereddict import DefaultOrderedDict
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+
+class FeatureReducer:
+    """
+    Simple class to use to be able to store a feature dropping model with all alternative models.
+
+    Attributes
+    ----------
+    columns_to_drop : List[str]
+        A list of the columns that should be dropped form the dataset.
+
+    Methods
+    -------
+    fit(self, columns_to_drop: List[str])
+       Define the columns that we would like to drop.
+    transform(self, df: pd.DataFrame)
+        Return the provided dataframe with only the columns remaining that are NOT in the columns_to_drop attribute
+    """
+
+    def __init__(self) -> None:
+        self.columns_to_drop: Optional[List[str]] = None
+
+    def fit(self, columns_to_drop: List[str]) -> None:
+        """Set the class attribute as the provided columns_to_drop argument.
+
+        Parameters
+        ----------
+        columns_to_drop : List[str]
+            A list of the columns we want to drop from a dataframe.
+
+        Returns
+        -------
+        None
+        """
+        self.columns_to_drop = columns_to_drop
+
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Drop the columns stored as the columns_to_drop attribute.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            The DataFrame we want to drop columns from that are present in the columns_to_drop attribute.
+
+        Returns
+        -------
+        pd.DataFrame
+        """
+        if (
+            self.columns_to_drop is None
+        ):  # cant be just "not" logic b/c empty lists return True from a "not" check
+            raise ValueError(
+                "The .columns_to_drop attribute has not been set yet. Make sure to run .fit(<list-of-cols-to-drop>) before .transform()"
+            )
+        columns_to_keep = [col for col in df.columns if col not in self.columns_to_drop]
+        return df[columns_to_keep]
 
 
 class ProcessPipelineBase:
@@ -119,6 +175,7 @@ class ProcessPipelineBase:
         self.data_transformations = DefaultOrderedDict(lambda: [])
         self.store_models = store_models
         self.columns_to_drop: List[str] = []
+        self.feature_reducer = FeatureReducer()
 
         # Set up any model IO
         if not model_storage_function:
@@ -529,8 +586,8 @@ class ProcessPipelineBase:
         self.fit_data_model(pca, feature_data, drop_columns=drop_columns)
 
     def get_correlated_columns(
-        self, df: pd.DataFrame, coor_threshold: float
-    ) -> List[Tuple[str, str]]:
+        self, df: pd.DataFrame, corr_threshold: float
+    ) -> List[str]:
         """Return the list of the pairs of columns with correlations greater than the threshold."""
 
         corr_df = df.corr()
@@ -539,10 +596,13 @@ class ProcessPipelineBase:
         result_list = []
         for i, col_1 in enumerate(cols):
             for col_2 in cols[i + 1 :]:
-                if corr_df.loc[col_1][col_2] >= coor_threshold:
+                if corr_df.loc[col_1][col_2] >= corr_threshold:
                     result_list.append((col_1, col_2))
 
-        return result_list
+        cols_to_drop = [col[1] for col in result_list]
+        self.columns_to_drop.extend(cols_to_drop)
+
+        return cols_to_drop
 
     def drop_correlated_columns(
         self,
@@ -551,14 +611,11 @@ class ProcessPipelineBase:
     ) -> None:
 
         """Drop any of the correlated columns according to the column_coor_thresh"""
-        coorelation_columns = self.get_correlated_columns(df, thresh)
-        logger.info(f"The coorelated column pairs are: {coorelation_columns}")
+        correlated_columns = self.get_correlated_columns(df, thresh)
 
-        cols_to_drop = [col[1] for col in coorelation_columns]
+        logger.info(f"Dropping: {correlated_columns}")
 
-        logger.info(f"Dropping: {cols_to_drop}")
-
-        return self.drop_columns(df, cols_to_drop)
+        return self.drop_columns(df, correlated_columns)
 
     def fit_model_based_features(self, df: pd.DataFrame) -> None:
         """Here do all feature engineering that requires models to be fit to the data, such as, scaling, on-hot-encoding,
@@ -646,7 +703,9 @@ class ProcessPipelineBase:
             elif column == "Unnamed: 0":
                 # We never want to use this column, so skip it. This also removes it.
                 continue
-            elif column not in df.columns:
+            elif (
+                column not in df.columns
+            ):  # This also skips the feature reducer feature
                 logger.info(
                     f"{column} NOT found in the provided dataframe. Skipping {transformations}."
                 )
@@ -684,9 +743,10 @@ class ProcessPipelineBase:
                         f"{name_to_use}_{transformation_name}"
                     ] = transformed_result
 
-        return self.drop_columns(
-            pd.concat([df, result_df], axis=1), self.columns_to_drop
-        )
+        if not self.feature_reducer.columns_to_drop:
+            self.feature_reducer.fit(self.columns_to_drop)
+
+        return self.feature_reducer.transform(pd.concat([df, result_df], axis=1))
 
     def dump_feature_based_models(self) -> None:
         """Given the ordered dict of the model based features, dump each model, with the name of the model in the column_transformation dict.
@@ -720,6 +780,16 @@ class ProcessPipelineBase:
                 )
                 idx += 1
 
+        # Lastly, store any info about the columns that should be dropped
+        self.feature_reducer.fit(self.columns_to_drop)
+        feature_reducer_path = self.model_dir / "feature_reducer"
+        if not feature_reducer_path.is_dir():
+            make_directory(feature_reducer_path)
+        dump(
+            self.feature_reducer,
+            feature_reducer_path / f"{idx}_featurereducer.joblib",
+        )
+
     def load_feature_based_models(self) -> DefaultOrderedDict[str, List[Any]]:
         """Given the process tag used to instantiate the class, load all models used for feature generation.
 
@@ -748,4 +818,6 @@ class ProcessPipelineBase:
             file = file_pair[0]
             column_name = file.split("/")[-2]
             model = load(file)
+            if column_name == "feature_reducer":
+                self.feature_reducer = model
             self.data_transformations[column_name].append(model)

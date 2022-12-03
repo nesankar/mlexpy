@@ -42,7 +42,14 @@ def basic_processor():
             for column in df.columns:
                 if not self.check_numeric_column(df[column]):
                     continue
-                self.fit_scaler(df[column], standard_scaling=True)
+                # Make the column retainment logic a bit complicated.
+                if "length" in column:
+                    drop_column = True
+                else:
+                    drop_column = False
+                self.fit_scaler(
+                    df[column], standard_scaling=True, drop_columns=drop_column
+                )
 
     return basic_processor
 
