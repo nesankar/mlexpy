@@ -57,6 +57,20 @@ def to_scale_dataframe() -> pd.DataFrame:
     )
 
 
+@pytest.fixture()
+def one_hot_dataframe() -> pd.DataFrame:
+    var_1 = [0, 1, 2]
+    var_2 = [0, 2, 1]
+    var_3 = [0, 2, 3]
+    cat_var = ["a", "b", "b"]
+
+    return pd.DataFrame(
+        zip(var_1, var_2, var_3, cat_var),
+        columns=["obs1", "obs2", "obs3", "obs4"],
+        index=list(range(len(var_1))),
+    )
+
+
 @pytest.fixture
 def rs_10() -> np.random.RandomState:
     return np.random.RandomState(10)

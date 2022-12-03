@@ -1,5 +1,10 @@
 import pytest
-from fixtures import simple_dataframe, base_processor, to_scale_dataframe
+from fixtures import (
+    simple_dataframe,
+    base_processor,
+    to_scale_dataframe,
+    one_hot_dataframe,
+)
 from mlexpy import processor
 import pandas as pd
 from pandas.testing import assert_series_equal, assert_frame_equal
@@ -43,11 +48,11 @@ def test_basic_capabilities(base_processor, to_scale_dataframe):
     base_processor.fit_scaler(to_scale_dataframe["obs3"], standard_scaling=False)
     transformed_df = base_processor.transform_model_based_features(to_scale_dataframe)
     equivalent = to_scale_dataframe["obs3"] / to_scale_dataframe["obs3"].max()
-    equivalent.name = "obs3_minmaxscaler()"
+    equivalent.name = "obs3_minmaxscaler"
 
     # Assert that the min-max encoder both (1) operates as expected, and (2) returns the values we expect.
     assert_series_equal(
-        transformed_df["obs3_minmaxscaler()"], equivalent, check_less_precise=True
+        transformed_df["obs3_minmaxscaler"], equivalent, check_less_precise=True
     ), "Failure to correctly apply a min-max scaler"
 
 
@@ -70,11 +75,10 @@ def test_column_logic(to_scale_dataframe):
     """Test that we can keep and drop columns as expected"""
 
     pcr = processor.ProcessPipelineBase()
-    pcr.columns_to_drop.append("obs1")
 
     # Test we drop this colum
     assert_frame_equal(
-        pcr.drop_columns(to_scale_dataframe.copy()),
+        pcr.drop_columns(to_scale_dataframe.copy(), ["obs1"]),
         to_scale_dataframe[["obs2", "obs3", "Unnamed: 0"]],
     )
 
@@ -111,3 +115,29 @@ def test_directory_functions():
 
     # Assert that we create the correct path even if not passing a model directory
     assert pcr_none.model_dir == Path(sys.path[-1]) / ".models" / "test_example"
+
+
+def test_onehot_encoding(one_hot_dataframe, base_processor):
+
+    base_processor.fit_one_hot_encoding(one_hot_dataframe["obs4"])
+    encoded_df = base_processor.transform_model_based_features(one_hot_dataframe)
+    print(encoded_df.columns)
+
+    result_df = pd.concat(
+        [
+            one_hot_dataframe,
+            pd.DataFrame(
+                zip([1.0, 0.0, 0.0], [0.0, 1.0, 1.0]),
+                columns=["obs4_onehotencoder_x0_a", "obs4_onehotencoder_x0_b"],
+                index=[0, 1, 2],
+            ),
+        ],
+        axis=1,
+    )
+    print(result_df.columns)
+
+    # Test that the output of the one hot encoding is exactly how we expect it
+    assert_frame_equal(
+        encoded_df,
+        result_df,
+    )

@@ -1,6 +1,6 @@
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
-from typing import List, Any, Union, Optional, Callable
+from typing import List, Any, Union, Optional, Callable, Tuple
 from joblib import dump, load
 import sys
 from pathlib import Path
@@ -12,7 +12,6 @@ from sklearn.preprocessing import (
     MinMaxScaler,
     OneHotEncoder,
 )
-from sklearn.feature_selection import SelectKBest
 from sklearn.exceptions import NotFittedError
 from mlexpy.utils import df_assertion, series_assertion, make_directory
 from src.defaultordereddict import DefaultOrderedDict
@@ -43,7 +42,7 @@ class ProcessPipelineBase:
 
     data_transformations : DefaultOrderedDict
         The ordered dictionary used to store any dataset based feature transformation that requires a model. For example a PCA model, or standard scaling to a column.
-        We need to fit this PCA model ONLY on the train data, and then store the PCA model in order to apply it to the testing dataset.
+        We need to fit this PCS model ONLY on the train data, and then store the PCA model in order to apply it to the testing dataset.
 
     store_models : bool
         A boolean to designate if models should be stored or not.
@@ -109,6 +108,7 @@ class ProcessPipelineBase:
 
         self.process_tag = process_tag
         self.model_dir: Path = Path()
+        self.k_worst_cols: List[str] = []
         self._default_label_encoder = LabelEncoder
         self.data_transformations = DefaultOrderedDict(lambda: [])
         self.store_models = store_models
@@ -400,19 +400,19 @@ class ProcessPipelineBase:
         feature_data: Union[pd.DataFrame, pd.Series],
         fit_method_name: str = "fit",
     ) -> None:
-        """Do all model fitting here in a dataset (or subset) WIDE manner, such as dimensionallity reduction.
-        This guarantees that all models will be stored, dumped, and reloaded correctly, and convieniently.
+        """Do all model fitting here in a dataset (or subset) WIDE manner, such as dimensionality reduction.
+        This guarantees that all models will be stored, dumped, and reloaded correctly, and conveniently.
 
         Parameters
         ----------
         model : Any
-            This is the instanciated model that you would like to fit to the data. Ex. an instanciated standard scaler.
+            This is the instantiated model that you would like to fit to the data. Ex. an instantiated standard scaler.
 
         feature_data : pd.DataFrame
             This is the DataFrame that you would like to apply the model to.
 
         fit_method_name : str
-            This is the name of the method to use to fit the model provided to the method. By default this will jsut be "fit"
+            This is the name of the method to use to fit the model provided to the method. By default this will just be "fit"
             but for customizeability, this can be any name.
 
         Returns
@@ -428,17 +428,20 @@ class ProcessPipelineBase:
         # Now perform the fitting according to the respective datatype provided.
         if isinstance(feature_data, pd.DataFrame):
             fit_call(feature_data.values)
-            self.data_transformations["~~".join(feature_data.columns)].append(model)
+            # get the feature specific key string
+            key_string = "~~".join(feature_data.columns)
+
         elif isinstance(feature_data, pd.Series):
             fit_call(feature_data.values.reshape(-1, 1))
-            self.data_transformations[feature_data.name].append(model)
+            # get the feature specific key string
+            key_string = feature_data.name
         else:
             logger.warning(
                 f"The data to fit was not a pandas dataframe or series: {type(feature_data)}. Skipping and not applying the {model} model."
             )
 
         # Store the fit scaler to apply to the testing data.
-        self.data_transformations["~~".join(feature_data.columns)].append(model)
+        self.data_transformations[key_string].append(model)
 
     def fit_scaler(
         self, feature_data: pd.Series, standard_scaling: bool = True
@@ -482,18 +485,33 @@ class ProcessPipelineBase:
         None
         """
         logger.info(f"Fitting a one-hot-encoder to {feature_data.name}.")
-        onehoter = OneHotEncoder(handle_unknown="ignore")
+        onehoter = OneHotEncoder(handle_unknown="ignore", sparse=False)
         self.fit_data_model(onehoter, feature_data)
 
-    def drop_coorelated_columns(
-        self, df: pd.DataFrame, thresh: Optional[float] = None
+    def get_correlated_columns(
+        self, df: pd.DataFrame, coor_threshold: float
+    ) -> List[Tuple[str, str]]:
+        """Return the list of the pairs of columns with correlations greater than the threshold."""
+
+        corr_df = df.corr()
+        cols = corr_df.columns
+
+        result_list = []
+        for i, col_1 in enumerate(cols):
+            for col_2 in cols[i + 1 :]:
+                if corr_df.loc[col_1][col_2] >= coor_threshold:
+                    result_list.append((col_1, col_2))
+
+        return result_list
+
+    def drop_correlated_columns(
+        self,
+        df: pd.DataFrame,
+        thresh: float,
     ) -> None:
-        """Drop any of the coorelated columns according to the column_coor_thresh"""
 
-        if thresh is None:
-            thresh = self.column_coor_thresh
-
-        coorelation_columns = self.get_coorelation_columns(df, thresh)
+        """Drop any of the correlated columns according to the column_coor_thresh"""
+        coorelation_columns = self.get_correlated_columns(df, thresh)
         logger.info(f"The coorelated column pairs are: {coorelation_columns}")
 
         cols_to_drop = [col[1] for col in coorelation_columns]
@@ -562,7 +580,7 @@ class ProcessPipelineBase:
             self.dump_feature_based_models()
 
         result_df = pd.DataFrame(index=df.index)
-
+        print(self.data_transformations)
         if len(self.data_transformations) == 0:
             # First, check to see if there might be any files to load
             try:
@@ -577,21 +595,36 @@ class ProcessPipelineBase:
                 return df
 
         for column, transformations in self.data_transformations.items():
-            if "Unnamed:" in column:
-                # We never want to use this column
+            if "~~" in column:
+                # This means we have a multi-column transformation to perform.
+                column_to_use = column.split("~~")
+                data_to_use = df[column_to_use].values
+                name_to_use = (
+                    ""  # none here because there is not 1 column being transformed.
+                )
+
+            elif column == "Unnamed: 0":
+                # We never want to use this column, so skip it. This also removes it.
                 continue
             elif column not in df.columns:
                 logger.info(
                     f"{column} NOT found in the provided dataframe. Skipping {transformations}."
                 )
                 continue
+            else:
+                # Lastly, we have a single column to apply a transformation to.
+                column_to_use = column
+                data_to_use = df[column_to_use].values.reshape(-1, 1)
+                name_to_use = column
+            print(transformations)
             for i, transformation in enumerate(transformations):
-                logger.info(f"Applying the {transformation} to {column}")
-                transformed_result = transformation.transform(
-                    df[column].values.reshape(-1, 1)
-                )
-                if transformed_result.shape[0] > 1:
-                    # Then the resulting transformation is a matrix (ex. one hot encoding)
+                logger.info(f"Applying the {transformation} to {column_to_use}")
+                transformed_result = transformation.transform(data_to_use)
+                # Just use the name of the transformation (assuming it is a class)
+                transformation_name = transformation.__str__().lower().split("(")[0]
+
+                if transformed_result.shape[1] > 1:
+                    # Then the resulting transformation is a matrix (ex. one hot encoding). Make it dataframe ammenable
                     if hasattr(transformation, "get_feature_names_out"):
                         columns = transformation.get_feature_names_out()
                     else:
@@ -602,14 +635,14 @@ class ProcessPipelineBase:
                         index=df.index,
                     )
                     transformed_df.columns = [
-                        f"{column}_{transformation.__str__().lower()}_{col}"
+                        f"{name_to_use}_{transformation_name}_{col}"
                         for col in transformed_df.columns
                     ]
-                    result_df = pd.concat([result_df, transformed_df])
+                    result_df = pd.concat([result_df, transformed_df], axis=1)
                 else:
                     result_df[
-                        f"{column}_{transformation.__str__().lower()}"
-                    ] = transformation_result
+                        f"{name_to_use}_{transformation_name}"
+                    ] = transformed_result
 
         return pd.concat([df, result_df], axis=1)
 
