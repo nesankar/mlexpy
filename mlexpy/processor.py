@@ -12,6 +12,7 @@ from sklearn.preprocessing import (
     MinMaxScaler,
     OneHotEncoder,
 )
+from sklearn.decomposition import PCA
 from sklearn.exceptions import NotFittedError
 from mlexpy.utils import df_assertion, series_assertion, make_directory
 from src.defaultordereddict import DefaultOrderedDict
@@ -46,6 +47,11 @@ class ProcessPipelineBase:
 
     store_models : bool
         A boolean to designate if models should be stored or not.
+
+    columns_to_drop : List[str]
+        A list that stores columns you would like to drop. By default, all columns are kept. Alternatively, columns are
+        added to this list if desired when performing the model fit.
+
 
     Methods
     -------
@@ -112,6 +118,7 @@ class ProcessPipelineBase:
         self._default_label_encoder = LabelEncoder
         self.data_transformations = DefaultOrderedDict(lambda: [])
         self.store_models = store_models
+        self.columns_to_drop: List[str] = []
 
         # Set up any model IO
         if not model_storage_function:
@@ -398,6 +405,7 @@ class ProcessPipelineBase:
         self,
         model: Any,
         feature_data: Union[pd.DataFrame, pd.Series],
+        drop_columns: bool = False,
         fit_method_name: str = "fit",
     ) -> None:
         """Do all model fitting here in a dataset (or subset) WIDE manner, such as dimensionality reduction.
@@ -415,6 +423,9 @@ class ProcessPipelineBase:
             This is the name of the method to use to fit the model provided to the method. By default this will just be "fit"
             but for customizeability, this can be any name.
 
+        drop_columns : bool
+            Boolean flag to define if the columns transformed should be stored and additionally be dropped.
+
         Returns
         -------
         None
@@ -430,11 +441,15 @@ class ProcessPipelineBase:
             fit_call(feature_data.values)
             # get the feature specific key string
             key_string = "~~".join(feature_data.columns)
+            if drop_columns:
+                self.columns_to_drop.extend(feature_data.columns)
 
         elif isinstance(feature_data, pd.Series):
             fit_call(feature_data.values.reshape(-1, 1))
             # get the feature specific key string
             key_string = feature_data.name
+            if drop_columns:
+                self.columns_to_drop.append(feature_data.name)
         else:
             logger.warning(
                 f"The data to fit was not a pandas dataframe or series: {type(feature_data)}. Skipping and not applying the {model} model."
@@ -444,7 +459,10 @@ class ProcessPipelineBase:
         self.data_transformations[key_string].append(model)
 
     def fit_scaler(
-        self, feature_data: pd.Series, standard_scaling: bool = True
+        self,
+        feature_data: pd.Series,
+        standard_scaling: bool = True,
+        drop_columns: bool = False,
     ) -> None:
         """Perform the feature scaling here. If this a prediction method, then load and fit.
 
@@ -467,18 +485,17 @@ class ProcessPipelineBase:
             logger.info(f"Fitting a minmax scaler to {feature_data.name}.")
             scaler = MinMaxScaler()
 
-        self.fit_data_model(scaler, feature_data)
+        self.fit_data_model(scaler, feature_data, drop_columns)
 
     def fit_one_hot_encoding(
-        self,
-        feature_data: pd.Series,
+        self, feature_data: pd.Series, drop_columns: bool = True
     ) -> None:
         """Perform one-hot encoding here. If this a prediction method, then load and fit.
 
         Parameters
         ----------
         feature_data : pd.Series
-            The data we would like to scale provided as a pandas Series.
+            The data we would like to transform provided as a pandas Series.
 
         Returns
         -------
@@ -486,7 +503,30 @@ class ProcessPipelineBase:
         """
         logger.info(f"Fitting a one-hot-encoder to {feature_data.name}.")
         onehoter = OneHotEncoder(handle_unknown="ignore", sparse=False)
-        self.fit_data_model(onehoter, feature_data)
+        self.fit_data_model(onehoter, feature_data, drop_columns)
+
+    def fit_pca(
+        self, feature_data: pd.DataFrame, n_components: int, drop_columns: bool = True
+    ) -> None:
+        """Perform principal component analysis. If this a prediction method, then load and fit.
+
+        Parameters
+        ----------
+        feature_data : pd.DataFrame
+            The data we would like to transform provided as a pandas DataFrame.
+
+        n_components : int
+            The number of principal components to reattain after PCA.
+
+        Returns
+        -------
+        None
+        """
+        logger.info(
+            f"Fitting a pca model to {feature_data.columns} to {n_components} principal components."
+        )
+        pca = PCA(n_components=n_components)
+        self.fit_data_model(pca, feature_data, drop_columns=drop_columns)
 
     def get_correlated_columns(
         self, df: pd.DataFrame, coor_threshold: float
@@ -644,7 +684,9 @@ class ProcessPipelineBase:
                         f"{name_to_use}_{transformation_name}"
                     ] = transformed_result
 
-        return pd.concat([df, result_df], axis=1)
+        return self.drop_columns(
+            pd.concat([df, result_df], axis=1), self.columns_to_drop
+        )
 
     def dump_feature_based_models(self) -> None:
         """Given the ordered dict of the model based features, dump each model, with the name of the model in the column_transformation dict.

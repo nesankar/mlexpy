@@ -125,7 +125,7 @@ def test_onehot_encoding(one_hot_dataframe, base_processor):
 
     result_df = pd.concat(
         [
-            one_hot_dataframe,
+            one_hot_dataframe[["obs1", "obs2", "obs3"]],
             pd.DataFrame(
                 zip([1.0, 0.0, 0.0], [0.0, 1.0, 1.0]),
                 columns=["obs4_onehotencoder_x0_a", "obs4_onehotencoder_x0_b"],
