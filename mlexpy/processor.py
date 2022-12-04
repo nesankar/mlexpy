@@ -1,6 +1,6 @@
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
-from typing import List, Any, Union, Optional, Callable
+from typing import List, Any, Union, Optional, Callable, Set
 from joblib import dump, load
 import sys
 from pathlib import Path
@@ -28,21 +28,21 @@ class FeatureReducer:
 
     Attributes
     ----------
-    columns_to_drop : List[str]
+    columns_to_drop : Set[str]
         A list of the columns that should be dropped form the dataset.
 
     Methods
     -------
-    fit(self, columns_to_drop: List[str])
+    fit(self, columns_to_drop: Set[str])
        Define the columns that we would like to drop.
     transform(self, df: pd.DataFrame)
         Return the provided dataframe with only the columns remaining that are NOT in the columns_to_drop attribute
     """
 
     def __init__(self) -> None:
-        self.columns_to_drop: Optional[List[str]] = None
+        self.columns_to_drop: Optional[Set[str]] = None
 
-    def fit(self, columns_to_drop: List[str]) -> None:
+    def fit(self, columns_to_drop: Set[str]) -> None:
         """Set the class attribute as the provided columns_to_drop argument.
 
         Parameters
@@ -91,9 +91,6 @@ class ProcessPipelineBase:
     model_dir : Union[string, Path]
         The path to write to to store all models, if models are going to be stored.
 
-    columns_to_drop : List[str]
-        A list of column names that should be dropped. Stored as an attributed so that it can be updated throughout the object's usage and processing.
-
     _default_label_encoder : Any
         The default tool to use to encode any labels, in a categorical setting. By default uses the sklearn label encoder.
 
@@ -104,7 +101,7 @@ class ProcessPipelineBase:
     store_models : bool
         A boolean to designate if models should be stored or not.
 
-    columns_to_drop : List[str]
+    columns_to_drop : Set[str]
         A list that stores columns you would like to drop. By default, all columns are kept. Alternatively, columns are
         added to this list if desired when performing the model fit.
 
@@ -125,7 +122,7 @@ class ProcessPipelineBase:
         Store a model using the default tooling. This will be a jobilib dump, or the xgboost native store_model capability.
     default_load_model(self, model_tag: str, model: Optional[Any] = None)
         Load a model using the default tooling. This will be a joblib load, or a model's native load tooling. Ex. such as in xgboost models.
-    process_data(self, df: pd.DataFrame, training: bool = True)
+    process_data(self, df: pd.DataFrame, label_series: pd.Series, training: bool = True)
         The method to do all data processing. NOTE: This must be overwritten in the child class inheriting this class.
     drop_columns(self, df: pd.DataFrame)
         Drop the columns stored in the columns to drop list.
@@ -174,7 +171,7 @@ class ProcessPipelineBase:
         self._default_label_encoder = LabelEncoder
         self.data_transformations = DefaultOrderedDict(lambda: [])
         self.store_models = store_models
-        self.columns_to_drop: List[str] = []
+        self.columns_to_drop: Set[str] = set()
         self.feature_reducer = FeatureReducer()
 
         # Set up any model IO
@@ -378,13 +375,21 @@ class ProcessPipelineBase:
         logger.info(f"Retrieved {model_tag} from: {model_path}")
         return loaded_model
 
-    def process_data(self, df: pd.DataFrame, training: bool = True) -> pd.DataFrame:
+    def process_data(
+        self,
+        feature_df: pd.DataFrame,
+        training: bool = True,
+        label_series: Optional[pd.Series] = None,
+    ) -> pd.DataFrame:
         """Perform here all steps of the data processing for feature engineering
 
         Parameters
         ----------
         df : pd.DataFrame
             The input to-be-processed dataset.
+
+        label_series : pd.Series
+            The labels associated with the respective targets.
 
         training : bool
             A boolean declaring if this is training or testing dataset. For testing, we will only APPLY any transformations (not fit them).
@@ -397,7 +402,7 @@ class ProcessPipelineBase:
         -----
         Example structure to define in the child class:
 
-            def process_data(self, df: pd.DataFrame, training: bool = True) -> pd.DataFrame:
+            def process_data(self, df: pd.DataFrame, label_series: pd.Series,  training: bool = True) -> pd.DataFrame:
                 # Do a copy of the passed df
                 df = df.copy()
 
@@ -419,7 +424,9 @@ class ProcessPipelineBase:
         """
         raise NotImplementedError("This needs to be implemented in the child class.")
 
-    def drop_columns(self, df: pd.DataFrame, cols_to_drop: List[str]) -> pd.DataFrame:
+    def drop_columns(
+        self, df: pd.DataFrame, cols_to_drop: Union[Set[str], List[str]]
+    ) -> pd.DataFrame:
         """Simply drop the columns that are passed to the method.
 
         Parameters
@@ -427,7 +434,7 @@ class ProcessPipelineBase:
         df : pd.DataFrame
             The dataframe that we want to drop columns on.
 
-        cols_to_drop : List[str]
+        cols_to_drop : Union[Set[str], List[str]]
             The list of columns names that we want to drop.
 
         Returns
@@ -499,14 +506,14 @@ class ProcessPipelineBase:
             # get the feature specific key string
             key_string = "~~".join(feature_data.columns)
             if drop_columns:
-                self.columns_to_drop.extend(feature_data.columns)
+                self.columns_to_drop.update(feature_data.columns)
 
         elif isinstance(feature_data, pd.Series):
             fit_call(feature_data.values.reshape(-1, 1))
             # get the feature specific key string
             key_string = feature_data.name
             if drop_columns:
-                self.columns_to_drop.append(feature_data.name)
+                self.columns_to_drop.update([feature_data.name])
         else:
             logger.warning(
                 f"The data to fit was not a pandas dataframe or series: {type(feature_data)}. Skipping and not applying the {model} model."
@@ -600,7 +607,7 @@ class ProcessPipelineBase:
                     result_list.append((col_1, col_2))
 
         cols_to_drop = [col[1] for col in result_list]
-        self.columns_to_drop.extend(cols_to_drop)
+        self.columns_to_drop.update(cols_to_drop)
 
         return cols_to_drop
 
