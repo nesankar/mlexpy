@@ -1,3 +1,5 @@
+![master](https://github.com/nesankar/mlexpy/actions/workflows/python-package.yml/badge.svg)
+
 # mlexpy
 ### WIP updated 2022-12-04
 Simple utilities for handling and managing exploratory and experimental machine learning development.
