@@ -98,10 +98,29 @@ class DiabetesProcessor(processor.ProcessPipelineBase):
         # Do a copy of the passed df
         df = df.copy()
 
-        # First, compute the petal / sepal areas (but make the columns simpler)
         df.columns = [col.replace(" ", "_") for col in df.columns]
 
-        return df
+        # Now perform the training / testing dependent feature processing. This is why a `training` boolean is passed.
+        if training:
+            # Now FIT all of the model based features...
+            self.fit_model_based_features(df)
+            # ... and get the results of a transformation of all model based features.
+            model_features = self.transform_model_based_features(df)
+        else:
+            # Here we can ONLY apply the transformation
+            model_features = self.transform_model_based_features(df)
+
+        return model_features
+
+    def fit_model_based_features(self, df: pd.DataFrame) -> None:
+
+        standard_cols = ["age", "sex", "bmi", "bp"]
+        non_standard_cols = [col for col in df.columns if col not in standard_cols]
+        for col in standard_cols:
+            # Just scale these columns
+            self.fit_scaler(df[col], standard_scaling=True, drop_columns=True)
+
+        self.fit_pca(df[non_standard_cols], n_components=3, drop_columns=True)
 
 
 class DiabetesExperiment(experiment.RegressionExperimentBase):

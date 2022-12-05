@@ -119,6 +119,9 @@ class ExperimentBase:
         cv_iterations: int = 20,
         params: Optional[Dict[str, Any]] = None,
     ):
+        logger.info(
+            f"Training over {full_setup.train_data.obs.shape[1]} features ({full_setup.train_data.obs.columns}) and {len(full_setup.train_data.obs)} examples."
+        )
         if params:
             model = self.cv_search(
                 full_setup.train_data,

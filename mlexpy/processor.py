@@ -684,7 +684,6 @@ class ProcessPipelineBase:
             self.dump_feature_based_models()
 
         result_df = pd.DataFrame(index=df.index)
-        print(self.data_transformations)
         if len(self.data_transformations) == 0:
             # First, check to see if there might be any files to load
             try:
@@ -722,7 +721,6 @@ class ProcessPipelineBase:
                 column_to_use = column
                 data_to_use = df[column_to_use].values.reshape(-1, 1)
                 name_to_use = column
-            print(transformations)
             for i, transformation in enumerate(transformations):
                 logger.info(f"Applying the {transformation} to {column_to_use}")
                 transformed_result = transformation.transform(data_to_use)
