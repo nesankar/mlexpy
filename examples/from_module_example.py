@@ -97,39 +97,6 @@ class IrisPipeline(processor.ProcessPipelineBase):
                 continue
             self.fit_scaler(df[column], standard_scaling=True)
 
-    def process_data_pca(self, df: pd.DataFrame, training: bool = True) -> pd.DataFrame:
-        """All data processing that is to be performed for the iris classification task."""
-
-        # Do a copy of the passed df
-        df = df.copy()
-
-        # First, compute the petal / sepal areas (but make the columns simpler)
-        df.columns = [col.replace(" ", "_").strip("_(cm)") for col in df.columns]
-
-        for object in ["petal", "sepal"]:
-            df[f"{object}_area"] = df[f"{object}_length"] * df[f"{object}_width"]
-
-        # Now perform the training / testing dependent feature processing. This is why a `training` boolean is passed.
-        if training:
-            # Now FIT all of the model based features...
-            self.fit_model_based_features_pca(df)
-            # ... and get the results of a transformation of all model based features.
-            model_features = self.transform_model_based_features(df)
-        else:
-            # Here we can ONLY apply the transformation
-            model_features = self.transform_model_based_features(df)
-
-        all_feature_df = model_features
-
-        # --- Part removed for illustrative example -----
-        # # Imagine we only want to use the scaled features for prediction, then we retrieve only the scaled columns.
-        # # (This is easy because the columns are renamed with the model name in the column name)
-        # prediction_df = all_feature_df[
-        #     [col for col in all_feature_df if "standardscaler" in col]
-        # ]
-
-        return all_feature_df
-
     def fit_model_based_features_pca(self, df: pd.DataFrame, drop_columns=True) -> None:
         # Here we do any processing of columns that will require a model based transformation / engineering.
 
