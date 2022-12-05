@@ -40,7 +40,7 @@ class FeatureReducer:
     """
 
     def __init__(self) -> None:
-        self.columns_to_drop: Optional[List[str]] = None
+        self.columns_to_drop: Optional[Set[str]] = None
 
     def fit(self, columns_to_drop: Set[str]) -> None:
         """Set the class attribute as the provided columns_to_drop argument.
