@@ -1,4 +1,5 @@
-from collections import OrderedDict, Callable
+from collections import OrderedDict
+from typing import Callable
 
 # from: https://stackoverflow.com/questions/6190331/how-to-implement-an-ordered-default-dict
 
