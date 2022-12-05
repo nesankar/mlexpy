@@ -4,6 +4,7 @@ import pandas as pd
 from pathlib import Path
 from typing import Optional, Union, Callable
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from xgboost import XGBClassifier
 import sys
 from numpy.testing import assert_array_equal
 from fixtures import simple_dataframe, simple_binary_dataframe, rs_10, rs_20
@@ -291,7 +292,7 @@ def test_regression_model_match(simple_dataframe, rs_10, rs_20, regression_exper
     )
 
     # Assert that the predictions are the same
-    assert_array_equal(predictions, loaded_predictions)
+    assert_array_equal(predictions, new_predictions)
 
     # Assert that the evaluation metrics are all the same
     assert all(
@@ -325,7 +326,7 @@ def test_classification_model_match(
 
     # ... then train our model...
     trained_model = experiment_obj.train_model(
-        RandomForestClassifier(random_state=rs_10),
+        XGBClassifier(random_state=rs_10),
         processed_datasets,
     )
     # Get the predictions and evaluate the performance.
@@ -340,8 +341,9 @@ def test_classification_model_match(
 
     # Now, test that the results are the same if loading from a disk.
     loaded_datasets = experiment_obj.process_data_from_stored_models()
-    loaded_model = experiment_obj.load_model()
+    loaded_model = experiment_obj.load_model(XGBClassifier())
     # Get the predictions and evaluate the performance.
+
     loaded_predictions = experiment_obj.predict(loaded_datasets, loaded_model)
     loaded_results = experiment_obj.evaluate_predictions(
         loaded_datasets.test_data.labels,
@@ -374,7 +376,7 @@ def test_classification_model_match(
         process_tag="classification_match_process",
     )
     new_datasets = new_experiment.process_data_from_stored_models()
-    new_model = new_experiment.load_model()
+    new_model = new_experiment.load_model(XGBClassifier())
 
     # Get the predictions and evaluate the performance.
     new_predictions = new_experiment.predict(new_datasets, new_model)
@@ -384,7 +386,7 @@ def test_classification_model_match(
     )
 
     # Assert that the predictions are the same
-    assert_array_equal(predictions, loaded_predictions)
+    assert_array_equal(predictions, new_predictions)
 
     # Assert that the evaluation metrics are all the same
     print(

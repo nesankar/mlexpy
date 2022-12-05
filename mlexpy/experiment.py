@@ -237,6 +237,9 @@ class ExperimentBase:
             model_path = self.model_dir / f"{self.model_tag}.json"
             logger.info(f"Loading {self.model_tag} from: {model_path}")
             loaded_model = model.load_model(model_path)
+            if loaded_model is None:
+                # Handle  case where the loaded model is instantiated in the provided model inplace
+                return model
         else:
             model_path = self.model_dir / f"{self.model_tag}.joblib"
             logger.info(f"Loading {self.model_tag} from: {model_path}")
