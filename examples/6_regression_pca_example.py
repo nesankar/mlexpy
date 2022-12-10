@@ -227,6 +227,7 @@ if __name__ == "__main__":
         cv_split_count=20,
         model_tag="example_development_model",
         process_tag="example_development_process",
+        model_dir=Path(__file__).parent,
     )
 
     # Now begin the experimentation, start with performing the data processing...
