@@ -415,3 +415,19 @@ def test_classification_model_match(
             ]
         ]
     )
+
+    # Test that I can create probabs...
+    probabilities = experiment_obj.predict(
+        processed_datasets, trained_model, proba=True
+    )
+    # ... and that they can be evaluated...
+    experiment_obj.evaluate_predictions(
+        processed_datasets.test_data.labels,
+        predictions=predictions,
+        class_probabilities=probabilities,
+    )
+
+    # ... also evaluate the ROC based metrics WITHOUT ANY EXCEPTIONS.
+    roc_results = experiment_obj.evaluate_roc_metrics(
+        processed_datasets, probabilities, trained_model
+    )
