@@ -1,4 +1,4 @@
-![python-package](https://github.com/nesankar/mlexpy/actions/workflows/master.yml/badge.svg)
+![master](https://github.com/nesankar/mlexpy/actions/workflows/master.yml/badge.svg)
 [![codecov](https://codecov.io/gh/nesankar/mlexpy/branch/master/graph/badge.svg?token=2E7B8O1Q8F)](https://codecov.io/gh/nesankar/mlexpy)
 
 # mlexpy
