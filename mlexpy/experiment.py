@@ -211,20 +211,23 @@ class ExperimentBase:
         """Add the provided metric to the metric_dict"""
         del self.metric_dict[name]
 
-    def default_store_model(self, model: Any) -> None:
+    def default_store_model(self, model: Any, file_name: Optional[str] = None) -> None:
         """Given a calculated model, store it locally using joblib.
         Longer term/other considerations can be found here: https://scikit-learn.org/stable/model_persistence.html
         """
         self.make_storage_dir()
 
+        if not file_name:
+            file_name = self.model_tag
+
         if hasattr(model, "save_model"):
             # use the model's saving utilities, specifically beneficial wish xgboost. Can be beneficial here to use a json
             logger.info(f"Found a save_model method in {model}")
-            model_path = self.model_dir / f"{self.model_tag}.json"
+            model_path = self.model_dir / f"{file_name}.mdl"
             model.save_model(model_path)
         else:
             logger.info(f"Saving the {model} model using joblib.")
-            model_path = self.model_dir / f"{self.model_tag}.joblib"
+            model_path = self.model_dir / f"{file_name}.joblib"
             dump(model, model_path)
         logger.info(f"Dumped {self.model_tag} to: {model_path}")
 
@@ -234,7 +237,7 @@ class ExperimentBase:
         if hasattr(model, "load_model") and model:
             # use the model's loading utilities -- specifically beneficial with xgboost
             logger.info(f"Found a load_model method in {model}")
-            model_path = self.model_dir / f"{self.model_tag}.json"
+            model_path = self.model_dir / f"{self.model_tag}.mdl"
             logger.info(f"Loading {self.model_tag} from: {model_path}")
             loaded_model = model.load_model(model_path)
             if loaded_model is None:

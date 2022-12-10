@@ -190,7 +190,7 @@ class ProcessPipelineBase:
             self.load_model = self.default_load_model
         else:
             logger.info(f"Set the model loading function as: {model_loading_function}")
-            self.store_model = model_loading_function
+            self.load_model = model_loading_function
 
         if not model_dir:
             logger.info(
@@ -316,7 +316,7 @@ class ProcessPipelineBase:
             coded_labels = self.label_encoder.transform(labels.values)
         return pd.Series(coded_labels, name=labels.name, index=labels.index)
 
-    def default_store_model(self, model: Any, model_tag: str) -> None:
+    def default_store_model(self, model: Any, model_path: Union[str, Path]) -> None:
         """Given a calculated model, store it locally using joblib.
 
         Longer term/other considerations can be found here: https://scikit-learn.org/stable/model_persistence.html
@@ -338,15 +338,15 @@ class ProcessPipelineBase:
         if hasattr(model, "save_model"):
             # use the model's saving utilities, specifically beneficial wish xgboost. Can be beneficial here to use a json
             logger.info(f"Found a save_model method in {model}")
-            model_path = self.model_dir / f"{model_tag}_{self.process_tag}.json"
-            model.save_model(model_path)
+            model.save_model(f"{model_path}.mdl")
         else:
             logger.info(f"Saving the {model} model using joblib.")
-            model_path = self.model_dir / f"{model_tag}_{self.process_tag}.joblib"
-            dump(model, model_path)
-        logger.info(f"Dumped {model_tag} to: {model_path}")
+            dump(model, f"{model_path}.joblib")
+        logger.info(f"Dumped {model} to: {model_path}")
 
-    def default_load_model(self, model_tag: str, model: Optional[Any] = None) -> Any:
+    def default_load_model(
+        self, model_path: Union[str, Path], model: Optional[Any] = None
+    ) -> Any:
         """Given a model name, load it from storage
 
         Longer term/other considerations can be found here: https://scikit-learn.org/stable/model_persistence.html
@@ -366,13 +366,11 @@ class ProcessPipelineBase:
         if hasattr(model, "load_model") and model:
             # use the model's loading utilities -- specifically beneficial with xgboost
             logger.info(f"Found a load_model method in {model}")
-            model_path = self.model_dir / f"{model_tag}_{self.process_tag}.json"
             loaded_model = model.load_model(model_path)
         else:
-            model_path = self.model_dir / f"{model_tag}_{self.process_tag}.joblib"
-            logger.info(f"Loading {model_tag} from: {model_path}")
+            logger.info(f"Loading {model} from: {model_path}")
             loaded_model = load(model_path)
-        logger.info(f"Retrieved {model_tag} from: {model_path}")
+        logger.info(f"Retrieved {model} from: {model_path}")
         return loaded_model
 
     def process_data(
@@ -679,10 +677,6 @@ class ProcessPipelineBase:
         -------
         pd.DataFrame
         """
-        # By default, store all models when performing a transformation
-        if self.store_models:
-            self.dump_feature_based_models()
-
         result_df = pd.DataFrame(index=df.index)
         if len(self.data_transformations) == 0:
             # First, check to see if there might be any files to load
@@ -696,6 +690,10 @@ class ProcessPipelineBase:
                     "\nContinuing with out loading any model based column transformations."
                 )
                 return df
+        else:
+            # By default, store all models when performing a transformation
+            if self.store_models:
+                self.dump_feature_based_models()
 
         for column, transformations in self.data_transformations.items():
             if "~~" in column:
@@ -779,9 +777,9 @@ class ProcessPipelineBase:
             )
             for transformation in transformations:
                 transformation_name = transformation.__str__().lower()
-                dump(
+                self.store_model(
                     transformation,
-                    column_process_model_dir / f"{idx}_{transformation_name}.joblib",
+                    column_process_model_dir / f"{idx}_{transformation_name}",
                 )
                 idx += 1
 
@@ -790,9 +788,9 @@ class ProcessPipelineBase:
         feature_reducer_path = self.model_dir / "feature_reducer"
         if not feature_reducer_path.is_dir():
             make_directory(feature_reducer_path)
-        dump(
+        self.store_model(
             self.feature_reducer,
-            feature_reducer_path / f"{idx}_featurereducer.joblib",
+            feature_reducer_path / f"{idx}_featurereducer",
         )
 
     def load_feature_based_models(self) -> DefaultOrderedDict[str, List[Any]]:
@@ -822,7 +820,7 @@ class ProcessPipelineBase:
         for file_pair in file_ordering:
             file = file_pair[0]
             column_name = file.split("/")[-2]
-            model = load(file)
+            model = self.load_model(file)
             if column_name == "feature_reducer":
                 self.feature_reducer = model
             self.data_transformations[column_name].append(model)

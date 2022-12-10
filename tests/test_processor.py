@@ -11,6 +11,8 @@ from pandas.testing import assert_series_equal, assert_frame_equal
 from pathlib import Path
 import sys
 
+from sklearn.preprocessing import LabelEncoder
+
 
 def test_basic_processor_exceptions(base_processor, simple_dataframe):
     """Test that things don't work without defining the base processor as expected."""
@@ -141,3 +143,23 @@ def test_onehot_encoding(one_hot_dataframe, base_processor):
         encoded_df,
         result_df,
     )
+
+
+def test_storage_function():
+
+    pcr = processor.ProcessPipelineBase(
+        model_dir=Path(__file__).parent,
+        process_tag="storage_test",
+    )
+
+    labels = ["a", "b", "c"]
+    le_model = LabelEncoder()
+    results = le_model.fit_transform(labels)
+
+    pcr.store_model(le_model, f"{pcr.model_dir}/testing")
+
+    loaded_model = pcr.load_model(f"{pcr.model_dir}/testing.joblib")
+    loaded_results = loaded_model.transform(labels)
+
+    # Test that the model loaded in script is the same as retrieved from disk.
+    assert all([r == loaded_results[i] for i, r in enumerate(results)])
