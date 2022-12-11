@@ -370,7 +370,7 @@ class ProcessPipelineBase:
 
     def process_data(
         self,
-        feature_df: pd.DataFrame,
+        df: pd.DataFrame,
         training: bool = True,
         label_series: Optional[pd.Series] = None,
     ) -> pd.DataFrame:
@@ -520,6 +520,7 @@ class ProcessPipelineBase:
         feature_data: pd.Series,
         standard_scaling: bool = True,
         drop_columns: bool = False,
+        **kwargs,
     ) -> None:
         """Perform the feature scaling here. If this a prediction method, then load and fit.
 
@@ -537,15 +538,15 @@ class ProcessPipelineBase:
         """
         if standard_scaling:
             logger.info(f"Fitting a standard scaler to {feature_data.name}.")
-            scaler = StandardScaler()
+            scaler = StandardScaler(**kwargs)
         else:
             logger.info(f"Fitting a minmax scaler to {feature_data.name}.")
-            scaler = MinMaxScaler()
+            scaler = MinMaxScaler(**kwargs)
 
         self.fit_data_model(scaler, feature_data, drop_columns)
 
     def fit_one_hot_encoding(
-        self, feature_data: pd.Series, drop_columns: bool = True
+        self, feature_data: pd.Series, drop_columns: bool = True, **kwargs
     ) -> None:
         """Perform one-hot encoding here. If this a prediction method, then load and fit.
 
@@ -559,11 +560,15 @@ class ProcessPipelineBase:
         None
         """
         logger.info(f"Fitting a one-hot-encoder to {feature_data.name}.")
-        onehoter = OneHotEncoder(handle_unknown="ignore", sparse=False)
+        onehoter = OneHotEncoder(handle_unknown="ignore", sparse=False, **kwargs)
         self.fit_data_model(onehoter, feature_data, drop_columns)
 
     def fit_pca(
-        self, feature_data: pd.DataFrame, n_components: int, drop_columns: bool = True
+        self,
+        feature_data: pd.DataFrame,
+        n_components: int,
+        drop_columns: bool = True,
+        **kwargs,
     ) -> None:
         """Perform principal component analysis. If this a prediction method, then load and fit.
 
@@ -582,7 +587,7 @@ class ProcessPipelineBase:
         logger.info(
             f"Fitting a pca model to {feature_data.columns} to {n_components} principal components."
         )
-        pca = PCA(n_components=n_components)
+        pca = PCA(n_components=n_components, **kwargs)
         self.fit_data_model(pca, feature_data, drop_columns=drop_columns)
 
     def get_correlated_columns(
