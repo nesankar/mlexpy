@@ -70,7 +70,7 @@ class SimplePipeline(PipelineProcessorBase):
         df = df.copy()
 
         # Create some feature
-        df["new_feature] = df["existing_feature"] * df["other_existing_feature"]
+        df["new_feature"] = df["existing_feature"] * df["other_existing_feature"]
 
         # and return the resulting df
         return df
