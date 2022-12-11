@@ -2,7 +2,7 @@
 [![codecov](https://codecov.io/gh/nesankar/mlexpy/branch/master/graph/badge.svg?token=2E7B8O1Q8F)](https://codecov.io/gh/nesankar/mlexpy)
 
 # mlexpy
-### WIP updated 2022-12-04
+### WIP updated 2022-12-11
 Simple utilities for handling and managing exploratory and experimental machine learning development.
 
 ## Introduction: 
@@ -39,14 +39,14 @@ Note: Currently, `mlexpy` _only_ provides tooling for supervised learning.
 `mlexpy` is made up of 2 core modules, `processor` and `experiment`. These 2 modules interact to provide a clean space for ML development, with limited need for boilerplate "infrastructure" code.
 
 #### Expected usage:
-At minimum using `mlexpy` requires defining 2 classes each one with a `.process_data()` method. These classes inherit the `mlexpy` base classes, which don't have these methods defined, however, they do provide a variety of boilerplate ML tooling. An example workflow is shown below:
+At minimum using `mlexpy` requires defining a class that defines a `.process_data()` method that inherits the `processor.ProcessPipelineBase` class. The `ProcessPipelineBase` class provides a variety of boilerplate ML tooling. An example workflow is shown below.
 
-The plain language goals of `mlexpy` usage is described below. 
-1. Do all of your data processing in the `processor` module. This is done by creating a child class that inherits the `PipelineProcessorBase` class. However, the user need to write the `.process_data()` method in their child class.
+The plain language usage of `mlexpy`: 
+1. Do all of your processing of raw data in `.process_data()` method of your `ProcessPipelineBase`'s child class.
 
-2. Do all of your model experimentation in the `experiment` module. This is done by creating a child class that inherits the `{Classifier, Regression}ExperimentBase` class. However, a user needs to define the `process_data()` method for this class too. In general, this method should create an instance of the users pipeline child class and call the _pipeline_ class's `.process_data()` method.
+2. Do all of your model experimentation via the `experiment` module. This is done  the `{Classifier, Regression}Experiment` class. The `{Classifier, Regression}Experiment` class manages your test and train sets, file naming conventions, and random seeds internally. However, the user needs to define the pipeline class to use via the `{Classifier, Regression}Experiment.set_pipeline()` method. 
 
-These 2 methods provide the minimum needed infrastructure from a user to perform model training and evaluation in a highly structured manner, as outlined in the principles and goals above.
+These two classes provide the minimum needed infrastructure from a user to perform model training and evaluation in a highly structured manner, as outlined in the principles and goals above.
 
 - An example simple case of using `mlexpy` can be found in `examples/0_classification_example.ipynb`
 
@@ -54,13 +54,13 @@ These 2 methods provide the minimum needed infrastructure from a user to perform
 ```python
 # Get mlexpy modules
 from mlexpy.processor import ProcessPipelineBase
-from mlexpy.experiment import ClassifierExperimentBase
+from mlexpy.experiment import ClassifierExperiment
 
 # (1) Load data
-dataset = <do your loading here>
+dataset = <...do-your-loading-here...>
 
 # (2) Define your class to perform data processing
-class SimpleProcessor(PipelineProcessorBase):
+class SimplePipeline(PipelineProcessorBase):
     def __init__(self, <all initialization arguments>)
         super().__init(<all initialization arguments>)
 
@@ -74,46 +74,10 @@ class SimpleProcessor(PipelineProcessorBase):
 
         # and return the resulting df
         return df
-
-# (3) Define your class to do the experiment
-class SimpleExperiment(ClassifierExperimentBase):
-    def __init__(self, <all initialization arguments>)
-        super().__init(<all initialization arguments>)
-    
-    def process_data(
-        self, process_method_str: Optional[Callable] = "process_data"
-    ) -> pipeline_utils.ExperimentSetup:
-
-        processor = SimpleProcessor(process_tag=self.process_tag, model_dir=self.model_dir)
-
-        # Now do the data processing on the method defined in process_method_str.
-        process_method = getattr(processor, process_method_str)
-        train_df = process_method(self.training.obs, training=True)
-        test_df = process_method(self.testing.obs, training=False)
-
-        print(
-            f"The train data are of size {train_df.shape}, the test data are {test_df.shape}."
-        )
-
-        assert (
-            len(set(train_df.index).intersection(set(test_df.index))) == 0
-        ), "There are duplicated indices in the train and test set."
-
-        return pipeline_utils.ExperimentSetup(
-            pipeline_utils.MLSetup(
-                train_df,
-                self.training.labels,
-            ),
-            pipeline_utils.MLSetup(
-                test_df,
-                self.testing.labels,
-            ),
-        )
-
-# (4) Now you can run your experiments using a random forest for example.
+# (3) Now you can run your experiments using a random forest for example.
 
 # Define the experiment
-simple_experiment = SimpleExperiment(
+simple_experiment = ClassifierExperiment(
     train_setup=dataset.train_data,
     test_setup=dataset.test_data,
     cv_split_count=20,
@@ -122,6 +86,8 @@ simple_experiment = SimpleExperiment(
     model_dir=Path.cwd()
 )
 
+# Set the pipeline to use...
+simple_experiment.set_pipeline(SimplePipeline)
 # Now begin the experimentation, start with performing the data processing...
 processed_datasets = simple_experiment.process_data()
 
@@ -154,9 +120,9 @@ Is a higher level structure meant to provide all data for an experiment. Using t
 Performs a simple training at testing split of the data, however by default stratifies the dataset.
 
 - `utils.initial_filtering(df: pd.DataFrame, column_mask_functions: Dict[str, List[Callable]]) -> pd.DataFrame:`
-A simple method to perform any known filtering of the dataset prior to any training to testing split that might be desired, ex. dropping `nan`s, removing non-applicable cases, dropping duplicates, etc.
+A simple function to perform any known filtering of the dataset prior to any training to testing split that might be desired, ex. dropping `nan`s, removing non-applicable cases, dropping duplicates, etc.
 
-To try to simplify this task, and reduce boiler plate needed code, this function only needs a dictionary with values that provide boolean outputs of `True` on the records to keep for a given column. Any record with a value of `False` will be dropped from the dataset. An example dictionary is shown below is shown below:
+To simplify this task, and reduce boiler plate needed code, this function only needs a dictionary with values that provide boolean outputs of `True` on the records to keep for a given column. Any record with ***at least 1 value of `False` will be dropped from the dataset***. An example dictionary is shown below is shown below:
 
 ```python
 drop_patterns = ["nan", "any-other-substring-i-dont-want"]
@@ -178,23 +144,20 @@ column_filter_dict: Dict[str, List[Callable]] = {
 The `processor` module is meant to provide a clean space to perform any processing / feature engineering, is a structured manner. At minimum, this translates to defining the `.process_data()` method. A description of the critical methods required are provided below. A method that requires to be overridden by the child class wil raise a `NotImplementedError`.
 
 #####  `.process_data(self, df: pd.DataFrame, training: bool = True) -> pd.DataFrame:`
-This method performs your feature engineering. A suggested template is:
+This method performs your feature engineering. Note that this method (and supplementary provided methods) are made to easily handle processing when training, and when testing. A suggested template is:
     
 ```python
 def process_data(self, df: pd.DataFrame, training: bool = True) -> pd.DataFrame:
     """Perform here all steps of the data processing for feature engineering."""
     logger.info(f"Beginning to process all data of size {df.shape}.")
 
-    # First, do anything needed to drop known "unwanted" examples...
 
-    <...>
+    # First, do an "hard-coded" transformations or feature engineering, meaning something that does not need any models (such as multiplying values, or domain specific calculations)...
+    <...your-code-here...>
 
-    # ... next, do an "hard-coded" transformations or feature engineering, meaning something that does not need any models (such as PCA, statistical scaling)...
-
-    <...>
     logger.info(f"... processing complete for training={training}.")
 
-    # ... now, handle any cases where features require a model (such as PCA, statistical scaling) to be trained, that are now appropriate to be trained on the testing data...
+    # ... now, handle any cases where features require a model (such as PCA, statistical scaling, onehot-encoding) to be trained, that are now appropriate to be trained on the testing data...
     if training:
         self.fit_model_based_features(feature_df)
         feature_df = self.transform_model_based_features(feature_df)
@@ -203,15 +166,16 @@ def process_data(self, df: pd.DataFrame, training: bool = True) -> pd.DataFrame:
         # because we are training, we need to use the models already trained.
         feature_df = self.transform_model_based_features(feature_df)
 
+    # Return the 
     return feature_df
 ```
 
 #####  `.fit_model_based_features(self, df: pd.DataFrame) -> None:`
-This method performs all of your fitting of models to be used in model based features. Once fit, these models are stored in an `ordereddictionary` with dataframe column names as keys, and the list of the models to apply as a list as the values. This dictionary applies models in the exact same order as they were fit -- this way the steps of a pipeline can be preserved. An example is provided showing how a standard scaler is fit for every numerical column, and what the `.fit_scaler()` method might look like.
+This method performs all of your fitting of models to be used in model based features. Once fit, these models are stored in an `DefaultOrderedDictionary` with dataframe column names as keys, and the list of the models to apply as a list as the values. This dictionary applies models in the exact same order as they were fit -- this way the steps of a pipeline can be preserved. An example is provided showing how a standard scaler is fit for every numerical column, and what the `.fit_scaler()` method might look like.
 
 ```python
 def fit_model_based_features(self, df: pd.DataFrame) -> None:
-"""Here to model fitting for a transformation."""
+    """Here to model fitting for a transformation."""
 
     for column in df.columns:
         if df[column].dtype not in ("float", "int"):
@@ -231,63 +195,16 @@ def fit_scaler(
         scaler = MinMaxScaler()
 ```
 
-### `{Classification, Regression}ExperimentBase` module
-The `{Classification, Regression}ExperimentBase` modules are meant to provide a clean space to perform model training, and is a structured manner. the classification class and the regression classes are developed for each problem type. For the remainder of this description, a classification case will be applied, however is similar to regression. Similar to the `ProcessPipelineBase` class, again a `.process_data()` method needs to be defined. This method however, acts as a higher level wrapper for the Pipeline `.process_data()` methods governing both train set and test set processing, label encoding, and ensuring any observation - label index matching. A suggested template is:
+### `{Classification, Regression}Experiment` module
+The `{Classification, Regression}Experiment` modules provide a clean space to perform model training in a structured manner. The classification class and the regression classes are developed for each problem type. For the remainder of this description, a classification case will be applied, however is similar to regression. The Experiment classes require a pipeline attribute to be set via the `.set_pipeline()` method, where you should pass your developed child of `ProcessPipelineBase` as an argument. Via the _Experiment_ class you can run `.process_data()` which will perform all processing defined in your `ProcessPipelineBase`'s child class's `.process_data()` method.
 
 #### `.process_data(self, process_method: Optional[str] = None) -> ExperimentSetup:`
-This method performs all data processing for _both_ the training and testing data. The `process_method_str` argument is the name of the method you would like the processor class (in the example below `YourPipelineChildClass`) to use to process the data. By default this will be `.process_data()` however does not need to be. In this manner you can experiment with different pipeline processing methods, and store them in code, by simple passing different names inside of this function.
+This method performs all data processing for _both_ the training and testing data. The `process_method_str` argument is the name of the method you would like the processor class (in the example below `YourPipelineChildClass`) to use to process the data. By default this will be `.process_data()` however does not need to be. In this manner you can experiment with different processing methods in your pipeline class, and store them in code, by simply passing different names inside of this function.
 
-```python
-def process_data(
-    self, process_method_str: Optional[Callable] = "process_data", from_file: bool=False
-) -> pipeline_utils.ExperimentSetup:
-
-    processor = YourPipelineChildClass(process_tag=self.process_tag, model_dir=self.model_dir)
-
-    # Now do the data processing on the method defined in process_method_str.
-    process_method = getattr(processor, process_method_str)
-
-    # First, determine if we are processing data via loading previously trained transformation models...
-    if from_file:
-        # ... if so, just perform the process_method function for training
-        test_df = process_method(self.testing.obs, training=False)
-
-        return pipeline_utils.ExperimentSetup(
-            pipeline_utils.MLSetup(
-                pd.DataFrame(),
-                pd.Series(),
-            ),
-            pipeline_utils.MLSetup(
-                test_df,
-                self.testing.labels,
-            ),
-        )
-    else:
-        train_df = process_method(self.training.obs, training=True)
-        test_df = process_method(self.testing.obs, training=False)
-    print(
-        f"The train data are of size {train_df.shape}, the test data are {test_df.shape}."
-    )
-
-    assert (
-        len(set(train_df.index).intersection(set(test_df.index))) == 0
-    ), "There are duplicated indices in the train and test set."
-
-    return pipeline_utils.ExperimentSetup(
-        pipeline_utils.MLSetup(
-            train_df,
-            self.training.labels,
-        ),
-        pipeline_utils.MLSetup(
-            test_df,
-            self.testing.labels,
-        ),
-    )
-```
 
 #### Model training in the `ExperimentBase` class:
 
-Training an ML model is very simple using `mlexpy`. All of the necessary code for model training, and for hyperparameter search is defined in the `ExperimentBase` class. A model can be trained via the `.train_model()` method. If a hyperparameter space is provided to this method, then training includes a cross validated search through the hyperparemeter space. In the example above, the following snipit performs model training:
+Training an ML model is very simple using `mlexpy`. All of the necessary code for model training, and for _basic_ hyperparameter search is defined in the `ExperimentBase` class. A model can be trained via the `.train_model()` method. If a hyperparameter space is provided to this method, then training includes a cross validated search through the hyperparemeter space. In the example above, the following snipit performs model training:
 ```python
 # ... then train the model...
 trained_model = simple_experiment.train_model(
@@ -298,14 +215,14 @@ trained_model = simple_experiment.train_model(
 ```
 
 ##### Hyperparameter tuning
-By default if a hyperparameter space is provided, A randomized search of 20 iterations with 5-fold cross validation will be performed. If using a classifier, the scoring function for cross validation will be `f1_macro`, and for regression will be `rmse` (taken as a negative for maximization).
+By default, **if** a hyperparameter space is provided, A randomized search of 20 iterations with 5-fold cross validation will be performed. If using a classifier, the scoring function for cross validation will be `f1_macro`, and for regression will be `rmse` (taken as a negative for maximization).
 
 ### Evaluation
-Each of the `{Classification, Regression}ExperimentBase` classes define a relevant method for model evaluation, with the respective metrics. Each class type stores a dictionary of a metric_name -> metric_callable mapping, and evaluation simply operates for every key -> value pair in this dictionary. Custom metrics can be provided via the `.add_metric()` method, however need to accept the labels, and predictions as the input ex: `my_metric(labels: Iterable, predictions: Iterable) Note: If predictions are passed as class probabilities, make sure your metric functions raises an error if only the predicted class is provided)
+Each of the `{Classification, Regression}Experiment` classes define a relevant method for model evaluation, with the respective metrics. Each class type stores a dictionary of a metric_name -> metric_callable mapping, and evaluation simply operates for every key -> value pair in this dictionary. Custom metrics can be provided via the `.add_metric()` method, however need to accept the labels, and predictions as the input ex: `my_metric(labels: Iterable, predictions: Iterable)` **Note**: If predictions are passed as class probabilities, make sure your metric functions raises an error if only the predicted class is provided
 
 
 ### Notes:
-More detailed documentation can be found in the examples, docs, and docstrings including:
+More detailed uage can be found in the examples and docstrings including:
 
 - `examples/0_classification_example.ipynb` A notebook showing a number of applications of `mlexpy`.
 - `examples/1_scripted_example.py` Showing a rough outline for suggested file and modules structure using `mlexpy`.
@@ -313,14 +230,14 @@ More detailed documentation can be found in the examples, docs, and docstrings i
 - `examples/3_loading_models_example.py` Showing how to load stored model definitions to evaluate an existing method on "new" data.
 - `examples/4_initial_filtering_and_binary_class_example.py` Showing how to use the initial filtering tooling (`mlexpy.utils.initial_filtering()`) and a case of binary classification.
 - `examples/5_cv_search_for_hyperpareters.py` Showing how to perform hyperparameter search, and an example of a model_definition file to store ML model definitions.
+- `examples/6_regression_pca_example.py`Showing how to perform a regression example, and how to add in a possible PCA method for dimensionality reduction.
 
 ### Roadmap / TODOs:
 - Expand to `numpy.ndarray`s?
 - Test and/or expand to general statistical prediction models. (beyond the `sklearn` framework)
 - [ ] Should model storage include storage of label encoder + example
-- [ ] docstrings
 - [ ] Add in logic to make sure there are no `"Unnamed: 0"` columns
-
+- [ ] Add in readthedocs
 
 
 
