@@ -7,9 +7,9 @@ from sklearn.datasets import load_iris
 
 sys.path.append(str(Path.cwd()))
 print(sys.path)
-from mlexpy import pipeline_utils
+from mlexpy import pipeline_utils, experiment
 
-from from_module_example import IrisExperiment, IrisPipeline
+from from_module_example import IrisPipeline
 from model_defs import MODEL_DICT
 
 
@@ -96,7 +96,7 @@ if __name__ == "__main__":
     )
 
     # Define the experiment
-    experiment_obj = IrisExperiment(
+    experiment_obj = experiment.ClassifierExperiment(
         train_setup=experiment_setup.train_data,
         test_setup=experiment_setup.test_data,
         cv_split_count=5,

@@ -123,77 +123,6 @@ class DiabetesProcessor(processor.ProcessPipelineBase):
         self.fit_pca(df[non_standard_cols], n_components=3, drop_columns=True)
 
 
-class DiabetesExperiment(experiment.RegressionExperimentBase):
-    def __init__(
-        self,
-        train_setup: pipeline_utils.MLSetup,
-        test_setup: pipeline_utils.MLSetup,
-        cv_split_count: int = 5,
-        rnd_int: int = 100,
-        model_dir: Optional[Union[str, Path]] = None,
-        model_storage_function: Optional[Callable] = None,
-        model_loading_function: Optional[Callable] = None,
-        model_tag: str = "_development",
-        process_tag: str = "_development",
-    ) -> None:
-        super().__init__(
-            train_setup,
-            test_setup,
-            cv_split_count,
-            rnd_int,
-            model_dir,
-            model_storage_function,
-            model_loading_function,
-            model_tag,
-            process_tag,
-        )
-
-    def process_data(
-        self, process_method_str: str = "process_data", from_file: bool = False
-    ) -> pipeline_utils.ExperimentSetup:
-
-        # Now get the the data processing method defined in process_method_str.
-        process_method = getattr(self.pipeline, process_method_str)
-
-        # First, determine if we are processing data via loading previously trained transformation models...
-        if from_file:
-            # ... if so, just perform the process_method function for training
-            test_df = process_method(self.testing.obs, training=False)
-
-            return pipeline_utils.ExperimentSetup(
-                pipeline_utils.MLSetup(
-                    pd.DataFrame(),
-                    pd.Series(),
-                ),
-                pipeline_utils.MLSetup(
-                    test_df,
-                    self.testing.labels,
-                ),
-            )
-        else:
-            train_df = process_method(self.training.obs, training=True)
-            test_df = process_method(self.testing.obs, training=False)
-
-        print(
-            f"The train data are of size {train_df.shape}, the test data are {test_df.shape}."
-        )
-
-        assert (
-            len(set(train_df.index).intersection(set(test_df.index))) == 0
-        ), "There are duplicated indices in the train and test set."
-
-        return pipeline_utils.ExperimentSetup(
-            pipeline_utils.MLSetup(
-                train_df,
-                self.training.labels,
-            ),
-            pipeline_utils.MLSetup(
-                test_df,
-                self.testing.labels,
-            ),
-        )
-
-
 # Now do the experimentation
 
 if __name__ == "__main__":
@@ -215,7 +144,7 @@ if __name__ == "__main__":
         stratify=False,
     )
     # Define the experiment
-    experiment_obj = DiabetesExperiment(
+    experiment_obj = experiment.RegressionExperiment(
         train_setup=experiment_setup.train_data,
         test_setup=experiment_setup.test_data,
         cv_split_count=20,

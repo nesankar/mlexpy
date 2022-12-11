@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
+from pandas.api.types import is_numeric_dtype
 import numpy as np
 import logging
 from joblib import dump, load
@@ -64,6 +65,7 @@ class ExperimentBase:
         A string to define the model methods. Used in naming the files that are dumped to disk.
     pipeline
         The ProcessPipeline class to use to pre-process all data prior to modeling.
+
     Methods
     -------
     make_storage_dir()
@@ -199,59 +201,72 @@ class ExperimentBase:
 
         Returns
         -------
-        An ExperimentSetup named tuple that contains the training and testing data to use to build a model over.
-
-        Notes
-        -----
-        Example structure to define in the child class:
-
-            def process_data(
-                self, process_method_str: Optional[Callable] = "process_data", from_file: bool=False
-            ) -> pipeline_utils.ExperimentSetup:
-
-                processor = YourPipelineChildClass(process_tag=self.process_tag, model_dir=self.model_dir)
-
-                # Now do the data processing on the method defined in process_method_str.
-                process_method = getattr(processor, process_method_str)
-
-                # First, determine if we are processing data via loading previously trained transformation models...
-                if from_file:
-                    # ... if so, just perform the process_method function for training
-                    test_df = process_method(self.testing.obs, training=False)
-
-                    return pipeline_utils.ExperimentSetup(
-                        pipeline_utils.MLSetup(
-                            pd.DataFrame(),
-                            pd.Series(),
-                        ),
-                        pipeline_utils.MLSetup(
-                            test_df,
-                            self.testing.labels,
-                        ),
-                    )
-                else:
-                    train_df = process_method(self.training.obs, training=True)
-                    test_df = process_method(self.testing.obs, training=False)
-                print(
-                    f"The train data are of size {train_df.shape}, the test data are {test_df.shape}."
-                )
-
-                assert (
-                    len(set(train_df.index).intersection(set(test_df.index))) == 0
-                ), "There are duplicated indices in the train and test set."
-
-                return pipeline_utils.ExperimentSetup(
-                    pipeline_utils.MLSetup(
-                        train_df,
-                        self.training.labels,
-                    ),
-                    pipeline_utils.MLSetup(
-                        test_df,
-                        self.testing.labels,
-                    ),
-                )
+        ExperimentSetup An ExperimentSetup named tuple that contains the training and testing data to use to build a model over.
         """
-        raise NotImplementedError("This needs to be implemented in the child class.")
+
+        if not self.pipeline:
+            raise NameError(
+                "The self.pipeline attribute has not be set. Run the .set_pipeline(<your-pipeline-class>) method to set the pipeline before processing."
+            )
+
+        # Now get the the data processing method defined in process_method_str.
+        process_method = getattr(self.pipeline, process_method_str)
+
+        # First, determine if we are processing data via loading previously trained transformation models...
+        if from_file:
+            # ... if so, just perform the process_method function for training
+            test_df = process_method(self.testing.obs, training=False)
+
+            if isinstance(self, ClassifierExperiment) and not is_numeric_dtype(
+                self.training.labels
+            ):
+                test_labels = self.pipeline.encode_labels(self.testing.labels)
+            else:
+                test_labels = self.testing.labels
+
+            return ExperimentSetup(
+                MLSetup(
+                    pd.DataFrame(),
+                    pd.Series(),
+                ),
+                MLSetup(
+                    test_df,
+                    test_labels,
+                ),
+            )
+        else:
+            train_df = process_method(self.training.obs, training=True)
+            test_df = process_method(self.testing.obs, training=False)
+
+            # Check if we might need to encode labels here
+            if isinstance(self, ClassifierExperiment) and not is_numeric_dtype(
+                self.training.labels
+            ):
+                # Then we need to encode the labels
+                train_labels = self.pipeline.encode_labels(self.training.labels)
+                test_labels = self.pipeline.encode_labels(self.testing.labels)
+            else:
+                train_labels = self.training.labels
+                test_labels = self.testing.labels
+
+        print(
+            f"The train data are of size {train_df.shape}, the test data are {test_df.shape}."
+        )
+
+        assert (
+            len(set(train_df.index).intersection(set(test_df.index))) == 0
+        ), "There are duplicated indices in the train and test set."
+
+        return ExperimentSetup(
+            MLSetup(
+                train_df,
+                train_labels,
+            ),
+            MLSetup(
+                test_df,
+                test_labels,
+            ),
+        )
 
     def process_data_from_stored_models(self) -> ExperimentSetup:
         """Perform data processing here, however only if using stored models.
@@ -507,7 +522,7 @@ class ExperimentBase:
         return loaded_model
 
 
-class ClassifierExperimentBase(ExperimentBase):
+class ClassifierExperiment(ExperimentBase):
     """
     Base class to provide standard model experimentation tooling for Classification problems.
 
@@ -531,6 +546,7 @@ class ClassifierExperimentBase(ExperimentBase):
             A string to name the data processing methods. Used in naming the files that are dumped to disk.
         self.model_tag
             A string to define the model methods. Used in naming the files that are dumped to disk.
+
     Methods
     -------
     make_storage_dir()
@@ -615,6 +631,7 @@ class ClassifierExperimentBase(ExperimentBase):
             The probability prediction of each class.
         baseline_value : Optional[Union[float, int]]
             If provided, will be used as a single value for every class. Ex. the most common class.
+
         Returns
         -------
         Dict[str, float]
@@ -672,6 +689,7 @@ class ClassifierExperimentBase(ExperimentBase):
             The probability prediction of each class.
         model : Any
             The trained model from which the predictions will be evaluated.
+
         Returns
         -------
         Dict[str, float]
@@ -739,6 +757,7 @@ class ClassifierExperimentBase(ExperimentBase):
             The probability prediction of each class.
         fig_size : Tuple[int, int]
             The figure size parameter for a matplotlib plot.
+
         Returns
         -------
         Dict[str, float]
@@ -778,7 +797,7 @@ class ClassifierExperimentBase(ExperimentBase):
         plt.show()
 
 
-class RegressionExperimentBase(ExperimentBase):
+class RegressionExperiment(ExperimentBase):
     """
     Base class to provide standard model experimentation tooling for Classification problems.
 
@@ -875,6 +894,7 @@ class RegressionExperimentBase(ExperimentBase):
             The class labels predicted from the model.
         baseline_value : Optional[Union[float, int]]
             If provided, will be used as a single value for every class. Ex. the most common class.
+
         Returns
         -------
         Dict[str, float]

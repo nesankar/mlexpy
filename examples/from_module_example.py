@@ -1,7 +1,7 @@
 import pandas as pd
 from pathlib import Path
 from typing import Union, Callable, Optional
-from mlexpy import processor, experiment, pipeline_utils
+from mlexpy import processor
 
 
 class IrisPipeline(processor.ProcessPipelineBase):
@@ -107,78 +107,3 @@ class IrisPipeline(processor.ProcessPipelineBase):
         # Note: there are no returned values for this method, the result is an update in the self.column_transformations dictionary
 
         self.fit_pca(df, n_components=2, drop_columns=drop_columns)
-
-
-class IrisExperiment(experiment.ClassifierExperimentBase):
-    def __init__(
-        self,
-        train_setup: pipeline_utils.MLSetup,
-        test_setup: pipeline_utils.MLSetup,
-        cv_split_count: int = 5,
-        rnd_int: int = 100,
-        model_dir: Optional[Union[str, Path]] = None,
-        model_storage_function: Optional[Callable] = None,
-        model_loading_function: Optional[Callable] = None,
-        model_tag: str = "example_development_model",
-        process_tag: str = "example_development_process",
-    ) -> None:
-        super().__init__(
-            train_setup,
-            test_setup,
-            cv_split_count,
-            rnd_int,
-            model_dir,
-            model_storage_function,
-            model_loading_function,
-            model_tag,
-            process_tag,
-        )
-
-    def process_data(
-        self,
-        process_method_str: str = "process_data",
-        from_file: bool = False,
-    ) -> pipeline_utils.ExperimentSetup:
-
-        # Now get the the data processing method defined in process_method_str.
-        process_method = getattr(self.pipeline, process_method_str)
-
-        # First, determine if we are processing data via loading previously trained transformation models...
-        if from_file:
-            # ... if so, just perform the process_method function for training
-            test_df = process_method(self.testing.obs, training=False)
-
-            # TODO: Also add loading a label encoder here...
-
-            return pipeline_utils.ExperimentSetup(
-                pipeline_utils.MLSetup(
-                    pd.DataFrame(),
-                    pd.Series(),
-                ),
-                pipeline_utils.MLSetup(
-                    test_df,
-                    self.testing.labels,
-                ),
-            )
-        else:
-            train_df = process_method(self.training.obs, training=True)
-            test_df = process_method(self.testing.obs, training=False)
-
-        print(
-            f"The train data are of size {train_df.shape}, the test data are {test_df.shape}."
-        )
-
-        assert (
-            len(set(train_df.index).intersection(set(test_df.index))) == 0
-        ), "There are duplicated indices in the train and test set."
-
-        return pipeline_utils.ExperimentSetup(
-            pipeline_utils.MLSetup(
-                train_df,
-                self.training.labels,
-            ),
-            pipeline_utils.MLSetup(
-                test_df,
-                self.testing.labels,
-            ),
-        )

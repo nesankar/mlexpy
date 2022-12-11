@@ -55,163 +55,7 @@ def basic_processor():
     return basic_processor
 
 
-@pytest.fixture
-def regression_experiment():
-    class regression_obj(experiment.RegressionExperimentBase):
-        def __init__(
-            self,
-            train_setup: pipeline_utils.MLSetup,
-            test_setup: pipeline_utils.MLSetup,
-            cv_split_count: int = 5,
-            rnd_int: int = 100,
-            model_dir: Optional[Union[str, Path]] = None,
-            model_storage_function: Optional[Callable] = None,
-            model_loading_function: Optional[Callable] = None,
-            model_tag: str = "_development",
-            process_tag: str = "_development",
-        ) -> None:
-            super().__init__(
-                train_setup,
-                test_setup,
-                cv_split_count,
-                rnd_int,
-                model_dir,
-                model_storage_function,
-                model_loading_function,
-                model_tag,
-                process_tag,
-            )
-
-        def process_data(
-            self, process_method_str: str = "process_data", from_file: bool = False
-        ) -> pipeline_utils.ExperimentSetup:
-
-            # Now get the the data processing method defined in process_method_str.
-            process_method = getattr(self.pipeline, process_method_str)
-
-            # First, determine if we are processing data via loading previously trained transformation models...
-            if from_file:
-                # ... if so, just perform the process_method function for training
-                test_df = process_method(self.testing.obs, training=False)
-
-                return pipeline_utils.ExperimentSetup(
-                    pipeline_utils.MLSetup(
-                        pd.DataFrame(),
-                        pd.Series(),
-                    ),
-                    pipeline_utils.MLSetup(
-                        test_df,
-                        self.testing.labels,
-                    ),
-                )
-            else:
-                train_df = process_method(self.training.obs, training=True)
-                test_df = process_method(self.testing.obs, training=False)
-
-            print(
-                f"The train data are of size {train_df.shape}, the test data are {test_df.shape}."
-            )
-
-            assert (
-                len(set(train_df.index).intersection(set(test_df.index))) == 0
-            ), "There are duplicated indices in the train and test set."
-
-            return pipeline_utils.ExperimentSetup(
-                pipeline_utils.MLSetup(
-                    train_df,
-                    self.training.labels,
-                ),
-                pipeline_utils.MLSetup(
-                    test_df,
-                    self.testing.labels,
-                ),
-            )
-
-    return regression_obj
-
-
-@pytest.fixture
-def classification_experiment():
-    class classification_obj(experiment.ClassifierExperimentBase):
-        def __init__(
-            self,
-            train_setup: pipeline_utils.MLSetup,
-            test_setup: pipeline_utils.MLSetup,
-            cv_split_count: int = 5,
-            rnd_int: int = 100,
-            model_dir: Optional[Union[str, Path]] = None,
-            model_storage_function: Optional[Callable] = None,
-            model_loading_function: Optional[Callable] = None,
-            model_tag: str = "_development",
-            process_tag: str = "_development",
-        ) -> None:
-            super().__init__(
-                train_setup,
-                test_setup,
-                cv_split_count,
-                rnd_int,
-                model_dir,
-                model_storage_function,
-                model_loading_function,
-                model_tag,
-                process_tag,
-            )
-
-        def process_data(
-            self, process_method_str: str = "process_data", from_file: bool = False
-        ) -> pipeline_utils.ExperimentSetup:
-
-            # Now get the the data processing method defined in process_method_str.
-            process_method = getattr(self.pipeline, process_method_str)
-
-            # First, determine if we are processing data via loading previously trained transformation models...
-            if from_file:
-                # ... if so, just perform the process_method function for training
-                test_df = process_method(self.testing.obs, training=False)
-                test_labels = self.pipeline.encode_labels(self.testing.labels)
-
-                return pipeline_utils.ExperimentSetup(
-                    pipeline_utils.MLSetup(
-                        pd.DataFrame(),
-                        pd.Series(),
-                    ),
-                    pipeline_utils.MLSetup(
-                        test_df,
-                        test_labels,
-                    ),
-                )
-            else:
-                train_df = process_method(self.training.obs, training=True)
-                test_df = process_method(self.testing.obs, training=False)
-
-                train_labels = self.pipeline.encode_labels(self.training.labels)
-                test_labels = self.pipeline.encode_labels(self.testing.labels)
-
-            print(
-                f"The train data are of size {train_df.shape}, the test data are {test_df.shape}."
-            )
-
-            assert (
-                len(set(train_df.index).intersection(set(test_df.index))) == 0
-            ), "There are duplicated indices in the train and test set."
-
-            return pipeline_utils.ExperimentSetup(
-                pipeline_utils.MLSetup(
-                    train_df,
-                    train_labels,
-                ),
-                pipeline_utils.MLSetup(
-                    test_df,
-                    test_labels,
-                ),
-            )
-
-    return classification_obj
-
-
-def test_regression_model_match(
-    simple_dataframe, rs_10, rs_20, regression_experiment, basic_processor
-):
+def test_regression_model_match(simple_dataframe, rs_10, rs_20, basic_processor):
 
     # Now do the experiment...
 
@@ -222,7 +66,7 @@ def test_regression_model_match(
         random_state=rs_20,
         stratify=False,
     )
-    experiment_obj = regression_experiment(
+    experiment_obj = experiment.RegressionExperiment(
         train_setup=dataset.train_data,
         test_setup=dataset.test_data,
         model_tag="regression_match_model",
@@ -271,7 +115,7 @@ def test_regression_model_match(
     )
 
     # Do the same thing with a newly named class
-    new_experiment = regression_experiment(
+    new_experiment = experiment.RegressionExperiment(
         train_setup=dataset.train_data,
         test_setup=dataset.test_data,
         model_tag="regression_match_model",
@@ -301,7 +145,7 @@ def test_regression_model_match(
 
 
 def test_classification_model_match(
-    simple_binary_dataframe, rs_10, rs_20, classification_experiment, basic_processor
+    simple_binary_dataframe, rs_10, rs_20, basic_processor
 ):
 
     # Now do the experiment...
@@ -311,7 +155,7 @@ def test_classification_model_match(
         test_frac=0.5,
         random_state=rs_20,
     )
-    experiment_obj = classification_experiment(
+    experiment_obj = experiment.ClassifierExperiment(
         train_setup=dataset.train_data,
         test_setup=dataset.test_data,
         model_tag="classification_match_model",
@@ -368,7 +212,7 @@ def test_classification_model_match(
     )
 
     # Do the same thing with a newly named class
-    new_experiment = classification_experiment(
+    new_experiment = experiment.ClassifierExperiment(
         train_setup=dataset.train_data,
         test_setup=dataset.test_data,
         model_tag="classification_match_model",

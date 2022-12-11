@@ -12,16 +12,18 @@ def test_basic_processor_exceptions():
 
     # We can't call a processor...
     with pytest.raises(
-        NotImplementedError, match="This needs to be implemented in the child class."
+        NameError,
+        # match="The self.pipeline attribute has not be set. Run the .set_pipeline(<your-pipeline-class>) method to set the pipeline before processing.",
     ):
-        # Assert that we raise a NotImplementedError here b/c this needs to be done in the class inheriting this class.
+        # Assert that we raise a NameError here b/c we need to set the pipeline first.
         exp.process_data()
 
     # We can't call a stored model processor...
     with pytest.raises(
-        NotImplementedError, match="This needs to be implemented in the child class."
+        NameError,
+        # match="The self.pipeline attribute has not be set. Run the .set_pipeline(<your-pipeline-class>) method to set the pipeline before processing.",
     ):
-        # Assert that we raise a NotImplementedError here b/c this needs to be done in the class inheriting this class.
+        # Assert that we raise a NameError here b/c we need to set the pipeline first.
         exp.process_data_from_stored_models()
 
 
