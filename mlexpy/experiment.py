@@ -7,7 +7,7 @@ import logging
 from joblib import dump, load
 import sys
 from pathlib import Path
-from typing import Dict, Optional, Any, Callable, Union, Tuple, Type
+from typing import Dict, Optional, Any, Callable, Union, Tuple
 
 from sklearn.metrics import (
     balanced_accuracy_score,
@@ -31,7 +31,6 @@ from sklearn.model_selection import (
 
 from mlexpy.pipeline_utils import MLSetup, ExperimentSetup, cv_report
 from mlexpy.utils import make_directory
-from mlexpy.processor import ProcessPipelineBase
 
 
 logging.basicConfig(level=logging.INFO)
@@ -115,7 +114,7 @@ class ExperimentBase:
         self.standard_metric = ""
         self.process_tag = process_tag
         self.model_tag = model_tag
-        self.pipeline = None
+        self.pipeline: Any
 
         # Setup model io
         if not model_storage_function:
@@ -165,9 +164,7 @@ class ExperimentBase:
         if not self.model_dir.is_dir():
             make_directory(self.model_dir)
 
-    def set_pipeline(
-        self, pipeline: Type[ProcessPipelineBase], process_tag: Optional[str] = None
-    ) -> None:
+    def set_pipeline(self, pipeline: Any, process_tag: Optional[str] = None) -> None:
         """Set the pipeline attribute that is called in self.process_data to process the data for modeling.
 
         Parameters
@@ -204,7 +201,7 @@ class ExperimentBase:
         ExperimentSetup An ExperimentSetup named tuple that contains the training and testing data to use to build a model over.
         """
 
-        if not self.pipeline:
+        if not hasattr(self, "pipeline"):
             raise NameError(
                 "The self.pipeline attribute has not be set. Run the .set_pipeline(<your-pipeline-class>) method to set the pipeline before processing."
             )
@@ -220,7 +217,7 @@ class ExperimentBase:
             if isinstance(self, ClassifierExperiment) and not is_numeric_dtype(
                 self.training.labels
             ):
-                test_labels = self.pipeline.encode_labels(self.testing.labels)
+                test_labels = self.pipeline.encode_labels(labels=self.testing.labels)
             else:
                 test_labels = self.testing.labels
 
@@ -243,8 +240,8 @@ class ExperimentBase:
                 self.training.labels
             ):
                 # Then we need to encode the labels
-                train_labels = self.pipeline.encode_labels(self.training.labels)
-                test_labels = self.pipeline.encode_labels(self.testing.labels)
+                train_labels = self.pipeline.encode_labels(labels=self.training.labels)
+                test_labels = self.pipeline.encode_labels(labels=self.testing.labels)
             else:
                 train_labels = self.training.labels
                 test_labels = self.testing.labels
@@ -425,7 +422,7 @@ class ExperimentBase:
             )
         logger.info(f"Beginning CV search using {cv_model} ...")
         cv_search.fit(data_setup.obs, data_setup.labels)
-        logger.info(cv_report(cv_search.cv_results_))
+        cv_report(cv_search.cv_results_)
         return cv_search.best_estimator_
 
     def add_metric(self, metric: Callable, name: str) -> None:
