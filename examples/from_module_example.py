@@ -1,10 +1,10 @@
 import pandas as pd
 from pathlib import Path
 from typing import Union, Callable, Optional
-from mlexpy import processor
+from mlexpy.processor import ProcessPipelineBase
 
 
-class IrisPipeline(processor.ProcessPipelineBase):
+class IrisPipeline(ProcessPipelineBase):
     def __init__(
         self,
         process_tag: str = "example_development_process",
@@ -17,7 +17,12 @@ class IrisPipeline(processor.ProcessPipelineBase):
         )
 
     # Now -- define the .process_data() method.
-    def process_data(self, df: pd.DataFrame, training: bool = True) -> pd.DataFrame:
+    def process_data(
+        self,
+        df: pd.DataFrame,
+        training: bool = True,
+        label_series: Optional[pd.Series] = None,
+    ) -> pd.DataFrame:
         """All data processing that is to be performed for the iris classification task."""
 
         # Do a copy of the passed df

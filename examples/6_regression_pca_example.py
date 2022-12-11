@@ -91,7 +91,12 @@ class DiabetesProcessor(processor.ProcessPipelineBase):
             store_models,
         )
 
-    def process_data(self, df: pd.DataFrame, training: bool = True) -> pd.DataFrame:
+    def process_data(
+        self,
+        df: pd.DataFrame,
+        training: bool = True,
+        label_series: Optional[pd.Series] = None,
+    ) -> pd.DataFrame:
 
         """All data processing that is to be performed for the iris classification task."""
 
