@@ -6,7 +6,7 @@ import logging
 from joblib import dump, load
 import sys
 from pathlib import Path
-from typing import Dict, Optional, Any, Callable, Union, Tuple
+from typing import Dict, Optional, Any, Callable, Union, Tuple, Type
 
 from sklearn.metrics import (
     balanced_accuracy_score,
@@ -30,6 +30,7 @@ from sklearn.model_selection import (
 
 from mlexpy.pipeline_utils import MLSetup, ExperimentSetup, cv_report
 from mlexpy.utils import make_directory
+from mlexpy.processor import ProcessPipelineBase
 
 
 logging.basicConfig(level=logging.INFO)
@@ -43,24 +44,26 @@ class ExperimentBase:
 
     Attributes
     ----------
-        self.testing
-            The test data MLSetup named tuple.
-        self.training
-            The train data MLSetup named tuple.
-        self.test_cv_split
-            The amount of data to use in each test set in cross validation. Only used if performing hyperparameter search.
-        self.rnd
-            An np.random.RandomState seed used to set the random seed for cv splitting, or random hyperparameter search.
-        self.cv_split_count
-            The number of splits to perform in any cv hyperparameter grid search.
-        self.metric_dict
-            A Dictionary of metrics to use to evaluate the model predictions.
-        self.standard_metric
-            The "standard metric" to use. This is what will be use in CV hyperparameter search as an objective.
-        self.process_tag
-            A string to name the data processing methods. Used in naming the files that are dumped to disk.
-        self.model_tag
-            A string to define the model methods. Used in naming the files that are dumped to disk.
+    testing
+        The test data MLSetup named tuple.
+    training
+        The train data MLSetup named tuple.
+    test_cv_split
+        The amount of data to use in each test set in cross validation. Only used if performing hyperparameter search.
+    rnd
+        An np.random.RandomState seed used to set the random seed for cv splitting, or random hyperparameter search.
+    cv_split_count
+        The number of splits to perform in any cv hyperparameter grid search.
+    metric_dict
+        A Dictionary of metrics to use to evaluate the model predictions.
+    standard_metric
+        The "standard metric" to use. This is what will be use in CV hyperparameter search as an objective.
+    process_tag
+        A string to name the data processing methods. Used in naming the files that are dumped to disk.
+    model_tag
+        A string to define the model methods. Used in naming the files that are dumped to disk.
+    pipeline
+        The ProcessPipeline class to use to pre-process all data prior to modeling.
     Methods
     -------
     make_storage_dir()
@@ -85,6 +88,8 @@ class ExperimentBase:
         Method to store a model. By default the model will be stored via joblib. Any model's native save method will be chosen here before joblib.
     default_load_model(model: Optional[Any] = None)
         Method to load a model. By default the model will be loaded via joblib. Any model's native load method will be chosen here before joblib.
+    set_pipeline(self, pipeline: Type[ProcessPipelineBase], process_tag: Optional[str]=None)
+        Method to set the current pipeline to use as the pre-processor.
     """
 
     def __init__(
@@ -108,6 +113,7 @@ class ExperimentBase:
         self.standard_metric = ""
         self.process_tag = process_tag
         self.model_tag = model_tag
+        self.pipeline = None
 
         # Setup model io
         if not model_storage_function:
@@ -157,8 +163,30 @@ class ExperimentBase:
         if not self.model_dir.is_dir():
             make_directory(self.model_dir)
 
+    def set_pipeline(
+        self, pipeline: Type[ProcessPipelineBase], process_tag: Optional[str] = None
+    ) -> None:
+        """Set the pipeline attribute that is called in self.process_data to process the data for modeling.
+
+        Parameters
+        ----------
+        pipeline : Type[ProcessPipelineBase]
+            This is the user defined processor class (inheriting ProcessPipelineBase) used to process the raw data.
+        process_tag : Optional[str]
+            This the the string use to attach a name to the process models when they are stored to disk.
+
+        Returns
+        -------
+        None
+        """
+        if not process_tag:
+            process_tag = self.process_tag
+        self.pipeline = pipeline(process_tag=process_tag, model_dir=self.model_dir)
+
     def process_data(
-        self, process_method_str: str = "process_data", from_file: bool = False
+        self,
+        process_method_str: str = "process_data",
+        from_file: bool = False,
     ) -> ExperimentSetup:
         """Perform data processing here.
 

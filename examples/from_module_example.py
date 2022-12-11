@@ -135,13 +135,13 @@ class IrisExperiment(experiment.ClassifierExperimentBase):
         )
 
     def process_data(
-        self, process_method_str: str = "process_data", from_file: bool = False
+        self,
+        process_method_str: str = "process_data",
+        from_file: bool = False,
     ) -> pipeline_utils.ExperimentSetup:
 
-        processor = IrisPipeline(process_tag=self.process_tag, model_dir=self.model_dir)
-
         # Now get the the data processing method defined in process_method_str.
-        process_method = getattr(processor, process_method_str)
+        process_method = getattr(self.pipeline, process_method_str)
 
         # First, determine if we are processing data via loading previously trained transformation models...
         if from_file:

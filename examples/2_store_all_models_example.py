@@ -10,7 +10,7 @@ sys.path.append(str(Path.cwd()))
 print(sys.path)
 from mlexpy import pipeline_utils
 
-from from_module_example import IrisExperiment
+from from_module_example import IrisExperiment, IrisPipeline
 
 
 def parse_args(args: List[str]) -> argparse.Namespace:
@@ -100,6 +100,9 @@ if __name__ == "__main__":
             __file__
         ).parent,  # This means I will place the models alongside this script
     )
+
+    # Set the pipeline attribute
+    experiment_obj.set_pipeline(IrisPipeline)
 
     # Now begin the experimentation, start with performing the data processing...
     processed_datasets = experiment_obj.process_data()

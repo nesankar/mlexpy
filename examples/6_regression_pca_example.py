@@ -152,19 +152,13 @@ class DiabetesExperiment(experiment.RegressionExperimentBase):
         self, process_method_str: str = "process_data", from_file: bool = False
     ) -> pipeline_utils.ExperimentSetup:
 
-        processor = DiabetesProcessor(
-            process_tag=self.process_tag, model_dir=self.model_dir
-        )
-
         # Now get the the data processing method defined in process_method_str.
-        process_method = getattr(processor, process_method_str)
+        process_method = getattr(self.pipeline, process_method_str)
 
         # First, determine if we are processing data via loading previously trained transformation models...
         if from_file:
             # ... if so, just perform the process_method function for training
             test_df = process_method(self.testing.obs, training=False)
-
-            # TODO: Also add loading a label encoder here...
 
             return pipeline_utils.ExperimentSetup(
                 pipeline_utils.MLSetup(
@@ -229,6 +223,8 @@ if __name__ == "__main__":
         process_tag="example_development_process",
         model_dir=Path(__file__).parent,
     )
+
+    experiment_obj.set_pipeline(DiabetesProcessor)
 
     # Now begin the experimentation, start with performing the data processing...
     processed_datasets = experiment_obj.process_data()

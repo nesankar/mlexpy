@@ -56,7 +56,7 @@ def basic_processor():
 
 
 @pytest.fixture
-def regression_experiment(basic_processor):
+def regression_experiment():
     class regression_obj(experiment.RegressionExperimentBase):
         def __init__(
             self,
@@ -86,12 +86,8 @@ def regression_experiment(basic_processor):
             self, process_method_str: str = "process_data", from_file: bool = False
         ) -> pipeline_utils.ExperimentSetup:
 
-            data_processor = basic_processor(
-                process_tag=self.process_tag, model_dir=self.model_dir
-            )
-
             # Now get the the data processing method defined in process_method_str.
-            process_method = getattr(data_processor, process_method_str)
+            process_method = getattr(self.pipeline, process_method_str)
 
             # First, determine if we are processing data via loading previously trained transformation models...
             if from_file:
@@ -135,7 +131,7 @@ def regression_experiment(basic_processor):
 
 
 @pytest.fixture
-def classification_experiment(basic_processor):
+def classification_experiment():
     class classification_obj(experiment.ClassifierExperimentBase):
         def __init__(
             self,
@@ -165,18 +161,14 @@ def classification_experiment(basic_processor):
             self, process_method_str: str = "process_data", from_file: bool = False
         ) -> pipeline_utils.ExperimentSetup:
 
-            data_processor = basic_processor(
-                process_tag=self.process_tag, model_dir=self.model_dir
-            )
-
             # Now get the the data processing method defined in process_method_str.
-            process_method = getattr(data_processor, process_method_str)
+            process_method = getattr(self.pipeline, process_method_str)
 
             # First, determine if we are processing data via loading previously trained transformation models...
             if from_file:
                 # ... if so, just perform the process_method function for training
                 test_df = process_method(self.testing.obs, training=False)
-                test_labels = data_processor.encode_labels(self.testing.labels)
+                test_labels = self.pipeline.encode_labels(self.testing.labels)
 
                 return pipeline_utils.ExperimentSetup(
                     pipeline_utils.MLSetup(
@@ -192,8 +184,8 @@ def classification_experiment(basic_processor):
                 train_df = process_method(self.training.obs, training=True)
                 test_df = process_method(self.testing.obs, training=False)
 
-                train_labels = data_processor.encode_labels(self.training.labels)
-                test_labels = data_processor.encode_labels(self.testing.labels)
+                train_labels = self.pipeline.encode_labels(self.training.labels)
+                test_labels = self.pipeline.encode_labels(self.testing.labels)
 
             print(
                 f"The train data are of size {train_df.shape}, the test data are {test_df.shape}."
@@ -217,7 +209,9 @@ def classification_experiment(basic_processor):
     return classification_obj
 
 
-def test_regression_model_match(simple_dataframe, rs_10, rs_20, regression_experiment):
+def test_regression_model_match(
+    simple_dataframe, rs_10, rs_20, regression_experiment, basic_processor
+):
 
     # Now do the experiment...
 
@@ -234,6 +228,8 @@ def test_regression_model_match(simple_dataframe, rs_10, rs_20, regression_exper
         model_tag="regression_match_model",
         process_tag="regression_match_process",
     )
+
+    experiment_obj.set_pipeline(basic_processor)
 
     # Now begin the experimentation, start with performing the data processing...
     processed_datasets = experiment_obj.process_data()
@@ -281,6 +277,7 @@ def test_regression_model_match(simple_dataframe, rs_10, rs_20, regression_exper
         model_tag="regression_match_model",
         process_tag="regression_match_process",
     )
+    new_experiment.set_pipeline(basic_processor)
     new_datasets = new_experiment.process_data_from_stored_models()
     new_model = new_experiment.load_model()
 
@@ -304,7 +301,7 @@ def test_regression_model_match(simple_dataframe, rs_10, rs_20, regression_exper
 
 
 def test_classification_model_match(
-    simple_binary_dataframe, rs_10, rs_20, classification_experiment
+    simple_binary_dataframe, rs_10, rs_20, classification_experiment, basic_processor
 ):
 
     # Now do the experiment...
@@ -320,6 +317,8 @@ def test_classification_model_match(
         model_tag="classification_match_model",
         process_tag="classification_match_process",
     )
+
+    experiment_obj.set_pipeline(basic_processor)
 
     # Now begin the experimentation, start with performing the data processing...
     processed_datasets = experiment_obj.process_data()
@@ -375,6 +374,7 @@ def test_classification_model_match(
         model_tag="classification_match_model",
         process_tag="classification_match_process",
     )
+    new_experiment.set_pipeline(basic_processor)
     new_datasets = new_experiment.process_data_from_stored_models()
     new_model = new_experiment.load_model(XGBClassifier())
 
