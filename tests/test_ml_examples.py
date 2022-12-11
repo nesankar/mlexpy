@@ -431,3 +431,7 @@ def test_classification_model_match(
     experiment_obj.evaluate_roc_metrics(
         processed_datasets, probabilities, trained_model
     )
+
+    experiment_obj.plot_multiclass_roc(
+        processed_datasets.test_data.labels, probabilities
+    )
