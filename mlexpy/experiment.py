@@ -38,6 +38,55 @@ logger.setLevel(logging.INFO)
 
 
 class ExperimentBase:
+    """
+    Base class to provide standard model experimentation tooling.
+
+    Attributes
+    ----------
+        self.testing
+            The test data MLSetup named tuple.
+        self.training
+            The train data MLSetup named tuple.
+        self.test_cv_split
+            The amount of data to use in each test set in cross validation. Only used if performing hyperparameter search.
+        self.rnd
+            An np.random.RandomState seed used to set the random seed for cv splitting, or random hyperparameter search.
+        self.cv_split_count
+            The number of splits to perform in any cv hyperparameter grid search.
+        self.metric_dict
+            A Dictionary of metrics to use to evaluate the model predictions.
+        self.standard_metric
+            The "standard metric" to use. This is what will be use in CV hyperparameter search as an objective.
+        self.process_tag
+            A string to name the data processing methods. Used in naming the files that are dumped to disk.
+        self.model_tag
+            A string to define the model methods. Used in naming the files that are dumped to disk.
+    Methods
+    -------
+    make_storage_dir()
+       Used to create a directory at the class attribute model_dir.
+    process_data(process_method_str: str = "process_data", from_file: bool = False)
+        Method used to process the raw data. This needs to be defined in the experiment's child class that the user writes.
+    process_data_from_stored_models()
+        Method used to process raw data, however, used when loading all data processing from disk. Ex. if evaluating a new dataset with an old model.
+    train_model(model: Any, full_setup: ExperimentSetup, cv_model: str = "random_search", cv_iterations: int = 20, params: Optional[Dict[str, Any]] = None)
+        The method to call to train the model. If a params arg is passed, then hyperparameter search is performed.
+    predict(full_setup: ExperimentSetup, model: Any, proba: bool = False)
+        The method to perform predictions for a model.
+    cv_splits(n_splits: int = 5)
+        A method to generate a cv-splitting method for cross validation.
+    cv_search(data_setup: MLSetup, ml_model: Any, parameters: Dict[str, Any], cv_model: str = "random_search", random_iterations: int = 5)
+        The method to perform cross-validated hyperparameter optimization. Currently, only grid or random search are options.
+    add_metric(metric: Callable, name: str)
+        Add a metric function to the metric_dict
+    remove_metric(name: str)
+        Remove a metric from the metric_dict
+    default_store_model(model: Any, file_name: Optional[str] = None)
+        Method to store a model. By default the model will be stored via joblib. Any model's native save method will be chosen here before joblib.
+    default_load_model(model: Optional[Any] = None)
+        Method to load a model. By default the model will be loaded via joblib. Any model's native load method will be chosen here before joblib.
+    """
+
     def __init__(
         self,
         train_setup: MLSetup,
@@ -52,7 +101,6 @@ class ExperimentBase:
     ) -> None:
         self.testing = test_setup
         self.training = train_setup
-        self.processor = None
         self.test_cv_split = 0.4
         self.rnd = np.random.RandomState(rnd_int)
         self.cv_split_count = cv_split_count
@@ -96,17 +144,98 @@ class ExperimentBase:
             self.model_dir = model_dir / self.process_tag
 
     def make_storage_dir(self) -> None:
-        """If we dont yet have the storage directory, make it now"""
+        """Create the directory of the mode_dir class attribute.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
         if not self.model_dir.is_dir():
             make_directory(self.model_dir)
 
     def process_data(
         self, process_method_str: str = "process_data", from_file: bool = False
     ) -> ExperimentSetup:
+        """Perform data processing here.
+
+        Parameters
+        ----------
+        process_method_str : str
+            The name of the method to use to process the data from the user defined ProcessPipeline class. By default is "process_data.
+        from_file : bool
+            A boolean flag to designate if the processing should be done via models from file ONLY.
+
+        Returns
+        -------
+        An ExperimentSetup named tuple that contains the training and testing data to use to build a model over.
+
+        Notes
+        -----
+        Example structure to define in the child class:
+
+            def process_data(
+                self, process_method_str: Optional[Callable] = "process_data", from_file: bool=False
+            ) -> pipeline_utils.ExperimentSetup:
+
+                processor = YourPipelineChildClass(process_tag=self.process_tag, model_dir=self.model_dir)
+
+                # Now do the data processing on the method defined in process_method_str.
+                process_method = getattr(processor, process_method_str)
+
+                # First, determine if we are processing data via loading previously trained transformation models...
+                if from_file:
+                    # ... if so, just perform the process_method function for training
+                    test_df = process_method(self.testing.obs, training=False)
+
+                    return pipeline_utils.ExperimentSetup(
+                        pipeline_utils.MLSetup(
+                            pd.DataFrame(),
+                            pd.Series(),
+                        ),
+                        pipeline_utils.MLSetup(
+                            test_df,
+                            self.testing.labels,
+                        ),
+                    )
+                else:
+                    train_df = process_method(self.training.obs, training=True)
+                    test_df = process_method(self.testing.obs, training=False)
+                print(
+                    f"The train data are of size {train_df.shape}, the test data are {test_df.shape}."
+                )
+
+                assert (
+                    len(set(train_df.index).intersection(set(test_df.index))) == 0
+                ), "There are duplicated indices in the train and test set."
+
+                return pipeline_utils.ExperimentSetup(
+                    pipeline_utils.MLSetup(
+                        train_df,
+                        self.training.labels,
+                    ),
+                    pipeline_utils.MLSetup(
+                        test_df,
+                        self.testing.labels,
+                    ),
+                )
+        """
         raise NotImplementedError("This needs to be implemented in the child class.")
 
     def process_data_from_stored_models(self) -> ExperimentSetup:
-        """Here perform all data processing using models loaded from storage."""
+        """Perform data processing here, however only if using stored models.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        An ExperimentSetup named tuple that contains the training and testing data to use to build a model over.
+        """
 
         from_file_processed_data = self.process_data(from_file=True)
         return from_file_processed_data
@@ -118,7 +247,27 @@ class ExperimentBase:
         cv_model: str = "random_search",
         cv_iterations: int = 20,
         params: Optional[Dict[str, Any]] = None,
-    ):
+    ) -> Any:
+        """
+        Do model training here.
+
+        Parameters
+        ----------
+        model : Any
+            The machine learning model you would like to train. The only requirement is that the model have a .fit() method.
+        full_setup : ExperimentSetup
+            The ExperimentSetup named tuple that stores all dataset info for training and testing.
+        cv_model : str
+            A string defining what hyperparameter search to use. Currently only options are gridsearch and randomsearch.
+        cv_iterations : int
+            If using random search, the number of random search iterations to use.
+        params : Optional[Dict[str, Any]]
+            A dictionary storing the parameter name and values to search over in the hyperparameter space.
+
+        Returns
+        -------
+        Any -- the model you have trained.
+        """
         logger.info(
             f"Training over {full_setup.train_data.obs.shape[1]} features ({full_setup.train_data.obs.columns}) and {len(full_setup.train_data.obs)} examples."
         )
@@ -140,23 +289,39 @@ class ExperimentBase:
     def predict(
         self, full_setup: ExperimentSetup, model: Any, proba: bool = False
     ) -> np.ndarray:
+        """
+        Do model prediction here.
+
+        Parameters
+        ----------
+        full_setup : ExperimentSetup
+            The ExperimentSetup named tuple that stores all dataset info for training and testing.
+        model : Any
+            The model you would like to use for prediction. Must have a predict method.
+        proba : bool
+            A boolean flag to designate if probabilities should be returned. Only valid for classification problems, and if used the model must have a predict proba method.
+
+        Returns
+        -------
+        nd.array
+        """
         if proba:
             return model.predict_proba(full_setup.test_data.obs)
         else:
             return model.predict(full_setup.test_data.obs)
 
-    def evaluate_predictions(
-        self,
-        full_setup: Union[pd.Series, np.ndarray],
-        predictions: Union[pd.Series, np.ndarray],
-        class_probabilities: Optional[np.ndarray] = None,
-        baseline_value: Optional[Union[float, int]] = False,
-    ) -> Dict[str, float]:
-        raise NotImplementedError("This needs to be implemented in the child class.")
-
     def cv_splits(self, n_splits: int = 5) -> StratifiedShuffleSplit:
-        """Creates an object to be passed to cv_eval, allowing for
-        # identical splits everytime cv_eval is used.
+        """
+        Method to define how to create cross validation splits. By default is stratified.
+
+        Parameters
+        ----------
+        n_splits : int
+            The number of splits (folds) created from the data in an iterations.
+
+        Returns
+        -------
+        StratifiedShuffleSplit
         """
         return StratifiedShuffleSplit(
             n_splits=n_splits, test_size=self.test_cv_split, random_state=self.rnd
@@ -170,8 +335,25 @@ class ExperimentBase:
         cv_model: str = "random_search",
         random_iterations: int = 5,
     ) -> Any:
-        """Run grid cross_validation search over the parameter space.
-        If no GirdSearch model provided run random search
+        """
+        Perform cross-validated search over the hyperparameters for the best model parameters.
+
+        Parameters
+        ----------
+        data_setup : MLSetup
+            The MLSetup object to train with. Contains the training and testing data.
+        ml_model : Any
+            The model you would like to train with hyperparameters tuned for.
+        parameters : Dict[str, Any]
+            A dictionary defining the hyperparameter space to search over. Keys are parameter names, and values are spaces. Each key-value pair is a hyperparameter dimension.
+        cv_model : str
+            A string defining the cv_search type to use. Either "random_search" or "grid_search".
+        random_iterations : int
+            The number of folds to use in the cross validation.
+
+        Returns
+        -------
+        Any -- the trained model
         """
 
         if not self.standard_metric:
@@ -204,16 +386,52 @@ class ExperimentBase:
         return cv_search.best_estimator_
 
     def add_metric(self, metric: Callable, name: str) -> None:
-        """Add the provided metric to the metric_dict"""
+        """
+        Add a metric to the metric dict that is called in evaluation.
+
+        Parameters
+        ----------
+        metric : Callable
+            The number of splits (folds) created from the data in an iterations. Needs to accept (labels, predictions).
+
+        name : str
+            The name of the metric.
+
+        Returns
+        -------
+        None
+        """
         self.metric_dict[name] = metric
 
     def remove_metric(self, name: str) -> None:
-        """Add the provided metric to the metric_dict"""
+        """Remove a metric to the metric dict that is called in evaluation.
+
+        Parameters
+        ----------
+        name : str
+            The name of the metric.
+
+        Returns
+        -------
+        None
+        """
         del self.metric_dict[name]
 
     def default_store_model(self, model: Any, file_name: Optional[str] = None) -> None:
         """Given a calculated model, store it locally using joblib.
         Longer term/other considerations can be found here: https://scikit-learn.org/stable/model_persistence.html
+
+        Parameters
+        ----------
+        model : Any
+            The model you would like to store.
+
+        file_name : Optional[str]
+            The file name you would like. This string will precede the file type suffix.
+
+        Returns
+        -------
+        None
         """
         self.make_storage_dir()
 
@@ -232,7 +450,17 @@ class ExperimentBase:
         logger.info(f"Dumped {self.model_tag} to: {model_path}")
 
     def default_load_model(self, model: Optional[Any] = None) -> Any:
-        """Given a model name, load it from storage."""
+        """Given a model name, load it from storage. The model is found by the model and process tag strings.
+
+         Parameters
+        ----------
+        model : Optional[Any]
+            The model you would like to store.
+
+        Returns
+        -------
+        None
+        """
 
         if hasattr(model, "load_model") and model:
             # use the model's loading utilities -- specifically beneficial with xgboost

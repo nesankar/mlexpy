@@ -159,11 +159,6 @@ class ProcessPipelineBase:
         model_loading_function: Optional[Callable] = None,
         store_models: bool = True,
     ) -> None:
-        """Instantiate the data processing pipeline. Note if for_training is True, then all models used are trained and stored, otherwise they are
-        loaded from file using the process tag.
-
-        Note: No language is provided here, so functionality is dependent on being inherited into a child class
-        """
 
         self.process_tag = process_tag
         self.model_dir: Path = Path()
