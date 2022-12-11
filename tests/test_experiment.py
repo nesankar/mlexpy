@@ -24,13 +24,6 @@ def test_basic_processor_exceptions():
         # Assert that we raise a NotImplementedError here b/c this needs to be done in the class inheriting this class.
         exp.process_data_from_stored_models()
 
-    # ... and we cant evaluate a model b/c we don't know if its regression of classification.
-    with pytest.raises(
-        NotImplementedError, match="This needs to be implemented in the child class."
-    ):
-        # Assert that we raise a NotImplementedError here b/c this needs to be done in the class inheriting this class.
-        exp.evaluate_predictions(full_setup=None, predictions=None)
-
 
 def test_directory_functions():
     """Test that we can successfully define our file structure"""

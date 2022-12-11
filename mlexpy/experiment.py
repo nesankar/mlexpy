@@ -480,6 +480,61 @@ class ExperimentBase:
 
 
 class ClassifierExperimentBase(ExperimentBase):
+    """
+    Base class to provide standard model experimentation tooling for Classification problems.
+
+    Attributes
+    ----------
+        self.testing
+            The test data MLSetup named tuple.
+        self.training
+            The train data MLSetup named tuple.
+        self.test_cv_split
+            The amount of data to use in each test set in cross validation. Only used if performing hyperparameter search.
+        self.rnd
+            An np.random.RandomState seed used to set the random seed for cv splitting, or random hyperparameter search.
+        self.cv_split_count
+            The number of splits to perform in any cv hyperparameter grid search.
+        self.metric_dict
+            A Dictionary of metrics to use to evaluate the model predictions.
+        self.standard_metric
+            The "standard metric" to use. This is what will be use in CV hyperparameter search as an objective.
+        self.process_tag
+            A string to name the data processing methods. Used in naming the files that are dumped to disk.
+        self.model_tag
+            A string to define the model methods. Used in naming the files that are dumped to disk.
+    Methods
+    -------
+    make_storage_dir()
+       Used to create a directory at the class attribute model_dir.
+    process_data(process_method_str: str = "process_data", from_file: bool = False)
+        Method used to process the raw data. This needs to be defined in the experiment's child class that the user writes.
+    process_data_from_stored_models()
+        Method used to process raw data, however, used when loading all data processing from disk. Ex. if evaluating a new dataset with an old model.
+    train_model(model: Any, full_setup: ExperimentSetup, cv_model: str = "random_search", cv_iterations: int = 20, params: Optional[Dict[str, Any]] = None)
+        The method to call to train the model. If a params arg is passed, then hyperparameter search is performed.
+    predict(full_setup: ExperimentSetup, model: Any, proba: bool = False)
+        The method to perform predictions for a model.
+    cv_splits(n_splits: int = 5)
+        A method to generate a cv-splitting method for cross validation.
+    cv_search(data_setup: MLSetup, ml_model: Any, parameters: Dict[str, Any], cv_model: str = "random_search", random_iterations: int = 5)
+        The method to perform cross-validated hyperparameter optimization. Currently, only grid or random search are options.
+    add_metric(metric: Callable, name: str)
+        Add a metric function to the metric_dict
+    remove_metric(name: str)
+        Remove a metric from the metric_dict
+    default_store_model(model: Any, file_name: Optional[str] = None)
+        Method to store a model. By default the model will be stored via joblib. Any model's native save method will be chosen here before joblib.
+    default_load_model(model: Optional[Any] = None)
+        Method to load a model. By default the model will be loaded via joblib. Any model's native load method will be chosen here before joblib.
+    evaluate_predictions(labels: Union[pd.Series, np.ndarray], predictions: Union[pd.Series, np.ndarray], class_probabilities: Optional[np.ndarray] = None, baseline_value: Optional[Union[float, int]] = None)
+        Method to evaluate the predictions via classification metrics.
+    evaluate_roc_metrics(full_setup: ExperimentSetup, class_probabilities: np.ndarray, model: Any)
+        Method to evaluate specifically the AU_ROC curve metrics.
+    plot_multiclass_roc(labels: Union[pd.Series, np.ndarray], class_probabilities: np.ndarray, fig_size: Tuple[int, int] = (8, 8))
+        Method to plot ROC curves for multiclass (or binary) classification problems.
+    """
+
     def __init__(
         self,
         train_setup: MLSetup,
@@ -520,7 +575,22 @@ class ClassifierExperimentBase(ExperimentBase):
         class_probabilities: Optional[np.ndarray] = None,
         baseline_value: Optional[Union[float, int]] = None,
     ) -> Dict[str, float]:
-        """Evaluate all predictions, and return the results in a dict"""
+        """Evaluate all predictions, and return the results in a dict.
+
+        Parameters
+        ----------
+        labels : Union[pd.Series, np.ndarray]
+            The true class labels for the data.
+        predictions : Union[pd.Series, np.ndarray]
+            The class labels predicted from the model.
+        class_probabilities : Optional[np.ndarray]
+            The probability prediction of each class.
+        baseline_value : Optional[Union[float, int]]
+            If provided, will be used as a single value for every class. Ex. the most common class.
+        Returns
+        -------
+        Dict[str, float]
+        """
 
         if baseline_value:
             evaluation_prediction = np.repeat(baseline_value, len(labels))
@@ -564,7 +634,20 @@ class ClassifierExperimentBase(ExperimentBase):
         model: Any,
     ) -> Dict[str, float]:
         """Perform any roc metric evaluation here. These require prediction probabilities or confidence, thus are separate
-        from more standard prediction value based metrics."""
+        from more standard prediction value based metrics.
+
+        Parameters
+        ----------
+        full_setup : ExperimentSetup
+            All data for the experiment. Because the AUC will be calculated from model.
+        class_probabilities : Optional[np.ndarray]
+            The probability prediction of each class.
+        model : Any
+            The trained model from which the predictions will be evaluated.
+        Returns
+        -------
+        Dict[str, float]
+        """
 
         # First, check that there are more than 1 predictions
         if len(class_probabilities) <= 1:
@@ -618,7 +701,20 @@ class ClassifierExperimentBase(ExperimentBase):
         class_probabilities: np.ndarray,
         fig_size: Tuple[int, int] = (8, 8),
     ) -> None:
-        """Following from here: https://stackoverflow.com/questions/45332410/roc-for-multiclass-classification"""
+        """Following from here: https://stackoverflow.com/questions/45332410/roc-for-multiclass-classification
+
+        Parameters
+        ----------
+        labels : Union[pd.Series, np.ndarray]
+            The true class labels for the data.
+        class_probabilities : Optional[np.ndarray]
+            The probability prediction of each class.
+        fig_size : Tuple[int, int]
+            The figure size parameter for a matplotlib plot.
+        Returns
+        -------
+        Dict[str, float]
+        """
 
         _, class_count = class_probabilities.shape
 
@@ -655,6 +751,57 @@ class ClassifierExperimentBase(ExperimentBase):
 
 
 class RegressionExperimentBase(ExperimentBase):
+    """
+    Base class to provide standard model experimentation tooling for Classification problems.
+
+    Attributes
+    ----------
+        self.testing
+            The test data MLSetup named tuple.
+        self.training
+            The train data MLSetup named tuple.
+        self.test_cv_split
+            The amount of data to use in each test set in cross validation. Only used if performing hyperparameter search.
+        self.rnd
+            An np.random.RandomState seed used to set the random seed for cv splitting, or random hyperparameter search.
+        self.cv_split_count
+            The number of splits to perform in any cv hyperparameter grid search.
+        self.metric_dict
+            A Dictionary of metrics to use to evaluate the model predictions.
+        self.standard_metric
+            The "standard metric" to use. This is what will be use in CV hyperparameter search as an objective.
+        self.process_tag
+            A string to name the data processing methods. Used in naming the files that are dumped to disk.
+        self.model_tag
+            A string to define the model methods. Used in naming the files that are dumped to disk.
+    Methods
+    -------
+    make_storage_dir()
+       Used to create a directory at the class attribute model_dir.
+    process_data(process_method_str: str = "process_data", from_file: bool = False)
+        Method used to process the raw data. This needs to be defined in the experiment's child class that the user writes.
+    process_data_from_stored_models()
+        Method used to process raw data, however, used when loading all data processing from disk. Ex. if evaluating a new dataset with an old model.
+    train_model(model: Any, full_setup: ExperimentSetup, cv_model: str = "random_search", cv_iterations: int = 20, params: Optional[Dict[str, Any]] = None)
+        The method to call to train the model. If a params arg is passed, then hyperparameter search is performed.
+    predict(full_setup: ExperimentSetup, model: Any, proba: bool = False)
+        The method to perform predictions for a model.
+    cv_splits(n_splits: int = 5)
+        A method to generate a cv-splitting method for cross validation.
+    cv_search(data_setup: MLSetup, ml_model: Any, parameters: Dict[str, Any], cv_model: str = "random_search", random_iterations: int = 5)
+        The method to perform cross-validated hyperparameter optimization. Currently, only grid or random search are options.
+    add_metric(metric: Callable, name: str)
+        Add a metric function to the metric_dict
+    remove_metric(name: str)
+        Remove a metric from the metric_dict
+    default_store_model(model: Any, file_name: Optional[str] = None)
+        Method to store a model. By default the model will be stored via joblib. Any model's native save method will be chosen here before joblib.
+    default_load_model(model: Optional[Any] = None)
+        Method to load a model. By default the model will be loaded via joblib. Any model's native load method will be chosen here before joblib.
+    evaluate_predictions(labels: Union[pd.Series, np.ndarray], predictions: Union[pd.Series, np.ndarray], class_probabilities: Optional[np.ndarray] = None, baseline_value: Optional[Union[float, int]] = None)
+        Method to evaluate the predictions via regression metrics.
+    """
+
     def __init__(
         self,
         train_setup: MLSetup,
@@ -688,10 +835,22 @@ class RegressionExperimentBase(ExperimentBase):
         self,
         labels: Union[pd.Series, np.ndarray],
         predictions: Union[pd.Series, np.ndarray],
-        class_probabilities: Optional[np.ndarray] = None,
         baseline_value: Optional[Union[float, int]] = None,
     ) -> Dict[str, float]:
-        """Evaluate all predictions, and return the results in a dict"""
+        """Evaluate all predictions, and return the results in a dict.
+
+        Parameters
+        ----------
+        labels : Union[pd.Series, np.ndarray]
+            The true class labels for the data.
+        predictions : Union[pd.Series, np.ndarray]
+            The class labels predicted from the model.
+        baseline_value : Optional[Union[float, int]]
+            If provided, will be used as a single value for every class. Ex. the most common class.
+        Returns
+        -------
+        Dict[str, float]
+        """
 
         if baseline_value:
             evaluation_prediction = np.repeat(baseline_value, len(labels))

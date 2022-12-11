@@ -428,6 +428,6 @@ def test_classification_model_match(
     )
 
     # ... also evaluate the ROC based metrics WITHOUT ANY EXCEPTIONS.
-    roc_results = experiment_obj.evaluate_roc_metrics(
+    experiment_obj.evaluate_roc_metrics(
         processed_datasets, probabilities, trained_model
     )
