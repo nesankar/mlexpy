@@ -125,7 +125,7 @@ A simple function to perform any known filtering of the dataset prior to any tra
 To simplify this task, and reduce boiler plate needed code, this function only needs a dictionary with values that provide boolean outputs of `True` on the records to keep for a given column. Any record with ***at least 1 value of `False` will be dropped from the dataset***. An example dictionary is shown below is shown below:
 
 ```python
-drop_patterns = ["nan", "any-other-substring-i-dont-want"]
+DROP_PATTERNS = ["nan", "any-other-substring-i-dont-want"]
 def response_to_drop(s: str) -> bool:
     """For any string, return True if any of the substrings in drop patterns are present in the string s."""
     return not any([drop_pattern in s for drop_pattern in DROP_PATTERNS])
