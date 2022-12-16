@@ -64,7 +64,7 @@ class SimplePipeline(PipelineProcessorBase):
     def __init__(self, <all initialization arguments>)
         super().__init(<all initialization arguments>)
 
-    def process_data(self):
+    def process_data(self, df: pd.DataFrame) -> pd.DataFrame:
 
         # Do a copy of the passed df
         df = df.copy()
@@ -100,7 +100,7 @@ trained_model = simple_experiment.train_model(
 
 # Get the predictions and evaluate the performance.
 predictions = experiment.predict(processed_datasets, trained_model)
-results =experiment.evaluate_predictions(processed_datasets, predictions=predictions)
+results = experiment.evaluate_predictions(processed_datasets, predictions=predictions)
 ```
 
 ### Data structures and functions
