@@ -158,6 +158,7 @@ class ProcessPipelineBase:
         model_storage_function: Optional[Callable] = None,
         model_loading_function: Optional[Callable] = None,
         store_models: bool = True,
+        rand_int: int = 10,
     ) -> None:
 
         self.process_tag = process_tag
@@ -168,6 +169,7 @@ class ProcessPipelineBase:
         self.store_models = store_models
         self.columns_to_drop: Set[str] = set()
         self.feature_reducer = FeatureReducer()
+        self.rand_int = rand_int
 
         # Set up any model IO
         if not model_storage_function:
@@ -587,7 +589,7 @@ class ProcessPipelineBase:
         logger.info(
             f"Fitting a pca model to {feature_data.columns} to {n_components} principal components."
         )
-        pca = PCA(n_components=n_components, **kwargs)
+        pca = PCA(n_components=n_components, random_state=self.rand_int, **kwargs)
         self.fit_data_model(pca, feature_data, drop_columns=drop_columns)
 
     def get_correlated_columns(
