@@ -24,7 +24,12 @@ def basic_processor():
                 process_tag, model_dir, model_storage_function, model_loading_function
             )
 
-        def process_data(self, df: pd.DataFrame, training: bool = True) -> pd.DataFrame:
+        def process_data(
+            self,
+            df: pd.DataFrame,
+            training: bool = True,
+            label_series: Optional[pd.Series] = None,
+        ) -> pd.DataFrame:
 
             # First create a new feature
             df["new_feature"] = df["obs1"] * df["obs2"]
