@@ -54,7 +54,10 @@ class IrisPipeline(ProcessPipelineBase):
 
     # For Example (4) -- create an alternative process method.
     def process_data_keep_all_columns(
-        self, df: pd.DataFrame, training: bool = True
+        self,
+        df: pd.DataFrame,
+        training: bool = True,
+        label_series: Optional[pd.Series] = None,
     ) -> pd.DataFrame:
         """All data processing that is to be performed for the iris classification task."""
 

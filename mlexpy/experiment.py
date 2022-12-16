@@ -212,14 +212,16 @@ class ExperimentBase:
         # First, determine if we are processing data via loading previously trained transformation models...
         if from_file:
             # ... if so, just perform the process_method function for training
-            test_df = process_method(self.testing.obs, training=False)
-
             if isinstance(self, ClassifierExperiment) and not is_numeric_dtype(
                 self.training.labels
             ):
                 test_labels = self.pipeline.encode_labels(labels=self.testing.labels)
             else:
                 test_labels = self.testing.labels
+
+            test_df = process_method(
+                self.testing.obs, training=False, label_series=test_labels
+            )
 
             return ExperimentSetup(
                 MLSetup(
@@ -232,9 +234,6 @@ class ExperimentBase:
                 ),
             )
         else:
-            train_df = process_method(self.training.obs, training=True)
-            test_df = process_method(self.testing.obs, training=False)
-
             # Check if we might need to encode labels here
             if isinstance(self, ClassifierExperiment) and not is_numeric_dtype(
                 self.training.labels
@@ -245,6 +244,13 @@ class ExperimentBase:
             else:
                 train_labels = self.training.labels
                 test_labels = self.testing.labels
+
+            train_df = process_method(
+                df=self.training.obs, training=True, label_series=train_labels
+            )
+            test_df = process_method(
+                df=self.testing.obs, training=False, label_series=test_labels
+            )
 
         print(
             f"The train data are of size {train_df.shape}, the test data are {test_df.shape}."
