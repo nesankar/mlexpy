@@ -15,7 +15,7 @@ from sklearn.preprocessing import (
 from sklearn.decomposition import PCA
 from sklearn.exceptions import NotFittedError
 from mlexpy.utils import df_assertion, series_assertion, make_directory
-from src.defaultordereddict import DefaultOrderedDict
+from mlexpy.src.defaultordereddict import DefaultOrderedDict
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

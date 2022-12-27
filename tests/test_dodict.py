@@ -1,5 +1,5 @@
 import pytest
-from src.defaultordereddict import DefaultOrderedDict
+from mlexpy.src.defaultordereddict import DefaultOrderedDict
 
 
 def test_initial_value():
