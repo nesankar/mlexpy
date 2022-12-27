@@ -9,7 +9,7 @@ Simple utilities for handling and managing exploratory and experimental machine 
 
 `mlexpy` is currently in test, but useable. Install via:
 
-```pip install -i https://test.pypi.org/simple/ mlexpy==0.0.0```
+```pip install -i https://test.pypi.org/simple/ mlexpy==0.0.1```
 
 - Feel free to explore how `mlexpy` works for your workflow. As a ~ beta release, any input is highly encouraged and likely to be implemented. Please feel free to open an issue or pull request at any time.
 
