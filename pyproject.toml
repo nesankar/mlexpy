@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mlexpy"
+version = "0.0.0"
+description = "Simple utilities for handling and managing exploratory and experimental machine learning development."
+readme = "README.md"
+authors = [{ name = "nesankar", email = "nesankar@mtu.edu" }]
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Development Status :: 3 - Alpha",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Framework :: tox",
+    "Natural Language :: English",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
+keywords = ["machine learning", "ML", "data science"]
+dependencies = [
+    "scikit-learn",
+    "matplotlib",
+    "seaborn",
+    "pandas",
+    "numpy",
+]
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+dev = ["tox", "black", "mypy"] # the rest get pulled in with tox
+
+[project.urls]
+Homepage = "https://github.com/nesankar/mlexpy"
