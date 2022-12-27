@@ -15,7 +15,7 @@ from sklearn.preprocessing import (
 from sklearn.decomposition import PCA
 from sklearn.exceptions import NotFittedError
 from mlexpy.utils import df_assertion, series_assertion, make_directory
-from mlexpy.src.defaultordereddict import DefaultOrderedDict
+from mlexpy.defaultordereddict import DefaultOrderedDict
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -795,7 +795,7 @@ class ProcessPipelineBase:
             feature_reducer_path / f"{idx}_featurereducer",
         )
 
-    def load_feature_based_models(self) -> DefaultOrderedDict[str, List[Any]]:
+    def load_feature_based_models(self) -> None:
         """Given the process tag used to instantiate the class, load all models used for feature generation.
 
         Parameters

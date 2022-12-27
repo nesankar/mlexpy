@@ -1,5 +1,5 @@
 import pytest
-from mlexpy.src.defaultordereddict import DefaultOrderedDict
+from mlexpy.defaultordereddict import DefaultOrderedDict
 
 
 def test_initial_value():
@@ -29,3 +29,12 @@ def test_correct_ordering():
 
     assert dod["6"] == 1
     assert dod["z"] == 0
+
+
+def test_failure_on_construction():
+
+    with pytest.raises(
+        TypeError,
+    ):
+        # Make sure we raise an exception if a series is passed to the df_assertion function
+        dod = DefaultOrderedDict(0)

@@ -1,13 +1,13 @@
 from collections import OrderedDict
-from typing import Callable
+from typing import Callable, Optional
 
 # from: https://stackoverflow.com/questions/6190331/how-to-implement-an-ordered-default-dict
 
 
 class DefaultOrderedDict(OrderedDict):
     # Source: http://stackoverflow.com/a/6190500/562769
-    def __init__(self, default_factory=None, *a, **kw):
-        if default_factory is not None and not isinstance(default_factory, Callable):
+    def __init__(self, default_factory: Optional[Callable] = None, *a, **kw):
+        if default_factory is not None and not callable(default_factory):
             raise TypeError("first argument must be callable")
         OrderedDict.__init__(self, *a, **kw)
         self.default_factory = default_factory
