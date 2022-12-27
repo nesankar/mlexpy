@@ -6,9 +6,7 @@ from typing import List, Optional, Callable, Union
 import argparse
 from sklearn.datasets import load_diabetes
 from mlexpy import pipeline_utils, experiment, processor
-
-sys.path.append(str(Path.cwd()))
-from examples.model_defs import MODEL_DICT
+from model_defs import MODEL_DICT
 
 
 def parse_args(args: List[str]) -> argparse.Namespace:

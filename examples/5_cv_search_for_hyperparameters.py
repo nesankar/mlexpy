@@ -5,7 +5,6 @@ from typing import List
 import argparse
 from sklearn.datasets import load_iris
 from mlexpy import pipeline_utils, experiment
-
 from from_module_example import IrisPipeline
 from model_defs import MODEL_DICT
 
