@@ -2,8 +2,16 @@
 [![codecov](https://codecov.io/gh/nesankar/mlexpy/branch/master/graph/badge.svg?token=2E7B8O1Q8F)](https://codecov.io/gh/nesankar/mlexpy)
 
 # mlexpy
-### WIP updated 2022-12-11
+### WIP updated 2022-12-27
 Simple utilities for handling and managing exploratory and experimental machine learning development.
+
+## Instillation
+
+`mlexpy` is currently in test, but useable. Install via:
+
+```pip install -i https://test.pypi.org/simple/ mlexpy==0.0.0```
+
+- Feel free to explore how `mlexpy` works for your workflow. As a ~ beta release, any input is highly encouraged and likely to be implemented. Please feel free to open an issue or pull request at any time.
 
 ## Introduction: 
 
@@ -231,6 +239,7 @@ More detailed uage can be found in the examples and docstrings including:
 - `examples/4_initial_filtering_and_binary_class_example.py` Showing how to use the initial filtering tooling (`mlexpy.utils.initial_filtering()`) and a case of binary classification.
 - `examples/5_cv_search_for_hyperpareters.py` Showing how to perform hyperparameter search, and an example of a model_definition file to store ML model definitions.
 - `examples/6_regression_pca_example.py`Showing how to perform a regression example, and how to add in a possible PCA method for dimensionality reduction.
+
 
 ### Roadmap / TODOs:
 - Expand to `numpy.ndarray`s?
