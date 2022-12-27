@@ -4,8 +4,6 @@ import numpy as np
 from typing import List
 import argparse
 from sklearn.datasets import load_iris
-
-sys.path.append(str(Path.cwd()))
 from mlexpy import pipeline_utils, experiment
 
 from from_module_example import IrisPipeline

@@ -5,9 +5,9 @@ import pandas as pd
 from typing import List, Optional, Callable, Union
 import argparse
 from sklearn.datasets import load_diabetes
+from mlexpy import pipeline_utils, experiment, processor
 
 sys.path.append(str(Path.cwd()))
-from mlexpy import pipeline_utils, experiment, processor
 from examples.model_defs import MODEL_DICT
 
 
