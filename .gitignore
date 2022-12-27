@@ -136,3 +136,4 @@ dmypy.json
 **/example_development_process
 **/storage_test
 docs/
+backup/

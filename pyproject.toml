@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlexpy"
-version = "0.0.0"
+version = "0.0.1"
 description = "Simple utilities for handling and managing exploratory and experimental machine learning development."
 readme = "README.md"
 authors = [{ name = "nesankar", email = "nesankar@mtu.edu" }]
