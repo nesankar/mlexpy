@@ -7,7 +7,6 @@ import argparse
 from sklearn.ensemble import RandomForestClassifier
 
 sys.path.append(str(Path.cwd()))
-print(sys.path)
 from mlexpy import pipeline_utils, experiment
 
 from from_module_example import IrisPipeline

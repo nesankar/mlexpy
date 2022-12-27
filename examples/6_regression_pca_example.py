@@ -7,7 +7,6 @@ import argparse
 from sklearn.datasets import load_diabetes
 
 sys.path.append(str(Path.cwd()))
-print(sys.path)
 from mlexpy import pipeline_utils, experiment, processor
 from examples.model_defs import MODEL_DICT
 
