@@ -15,7 +15,7 @@ Simple utilities for handling and managing exploratory and experimental machine 
 
 ```pip install mlexpy```
 
-- As a beta release, any input is highly encouraged and likely to be implemented. Please feel free to open an issue.
+- As an alpha release, any input is highly encouraged and likely to be implemented. Please feel free to open an issue.
 
 ## Introduction: 
 
