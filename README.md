@@ -1,18 +1,21 @@
 ![master](https://github.com/nesankar/mlexpy/actions/workflows/master.yml/badge.svg)
 [![codecov](https://codecov.io/gh/nesankar/mlexpy/branch/master/graph/badge.svg?token=2E7B8O1Q8F)](https://codecov.io/gh/nesankar/mlexpy)
 [![CodeFactor](https://www.codefactor.io/repository/github/nesankar/mlexpy/badge/master)](https://www.codefactor.io/repository/github/nesankar/mlexpy/overview/master)
+![pypi](https://img.shields.io/pypi/v/mlexpy.svg)
+![versions](https://img.shields.io/pypi/pyversions/mlexpy.svg)
+[![PyPI status](https://img.shields.io/pypi/status/mlexpy.svg)](https://pypi.org/project/mlexpy/)
+
 
 # mlexpy
-### WIP updated 2022-12-27
 Simple utilities for handling and managing exploratory and experimental machine learning development.
 
 ## Instillation
 
-`mlexpy` is currently in test, but useable. Install via:
+`mlexpy` can be installed via:
 
-```pip install -i https://test.pypi.org/simple/ mlexpy```
+```pip install mlexpy```
 
-- Feel free to explore how `mlexpy` works for your workflow. As a ~ beta release, any input is highly encouraged and likely to be implemented. Please feel free to open an issue or pull request at any time.
+- As a beta release, any input is highly encouraged and likely to be implemented. Please feel free to open an issue.
 
 ## Introduction: 
 
@@ -231,7 +234,7 @@ Each of the `{Classification, Regression}Experiment` classes define a relevant m
 
 
 ### Notes:
-More detailed uage can be found in the examples and docstrings including:
+More detailed usage can be found in the examples and docstrings including:
 
 - `examples/0_classification_example.ipynb` A notebook showing a number of applications of `mlexpy`.
 - `examples/1_scripted_example.py` Showing a rough outline for suggested file and modules structure using `mlexpy`.
@@ -245,9 +248,7 @@ More detailed uage can be found in the examples and docstrings including:
 ### Roadmap / TODOs:
 - Expand to `numpy.ndarray`s?
 - Test and/or expand to general statistical prediction models. (beyond the `sklearn` framework)
-- [ ] Should model storage include storage of label encoder + example
-- [ ] Add in logic to make sure there are no `"Unnamed: 0"` columns
-- [ ] Add in readthedocs
+- Add in readthedocs
 
 
 
