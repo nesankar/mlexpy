@@ -11,7 +11,7 @@
 # mlexpy
 Simple utilities for handling and managing exploratory and experimental machine learning development.
 
-## Instillation
+## Installation
 
 `mlexpy` can be installed via:
 
@@ -163,15 +163,11 @@ This method performs your feature engineering. Note that this method (and supple
 ```python
 def process_data(self, df: pd.DataFrame, training: bool = True) -> pd.DataFrame:
     """Perform here all steps of the data processing for feature engineering."""
-    logger.info(f"Beginning to process all data of size {df.shape}.")
-
 
     # First, do an "hard-coded" transformations or feature engineering, meaning something that does not need any models (such as multiplying values, or domain specific calculations)...
     <...your-code-here...>
 
-    logger.info(f"... processing complete for training={training}.")
-
-    # ... now, handle any cases where features require a model (such as PCA, statistical scaling, onehot-encoding) to be trained, that are now appropriate to be trained on the testing data...
+    # ... now, handle any cases where features require a model (such as PCA, statistical scaling, onehot-encoding) to be trained, that are not appropriate to be trained on the testing data...
     if training:
         self.fit_model_based_features(feature_df)
         feature_df = self.transform_model_based_features(feature_df)
