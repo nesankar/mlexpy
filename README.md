@@ -4,7 +4,6 @@
 ![pypi](https://img.shields.io/pypi/v/mlexpy.svg)
 ![versions](https://img.shields.io/pypi/pyversions/mlexpy.svg)
 [![PyPI status](https://img.shields.io/pypi/status/mlexpy.svg)](https://pypi.org/project/mlexpy/)
-[![PyPI Downloads](https://img.shields.io/pypi/dm/mlexpy.svg)](https://badge.fury.io/py/mlexpy)
 
 
 
