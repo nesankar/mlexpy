@@ -106,20 +106,26 @@ class CVSearch:
         score_function: Callable,
         test_fraction: float,
         n_splits: int = 5,
-        random_state: np.random.RandomState = np.random.RandomState(10),
+        random_seed: int = 10,
     ) -> None:
 
-        # set a default split function
+        # set a default split function, and stratify field.
         self._split_method = StratifiedShuffleSplit
+        self._stratify_split = True
 
         self.scorer = score_function
         self.cv_splits = n_splits
-        self.rnd = random_state
+        self.rnd = np.random.RandomState(random_seed)
+        self.random_seed = random_seed
         self.test_frac = test_fraction
 
     def set_split_function(self, split_function: Callable) -> None:
         logger.info(f"Set the cv split method as {split_function}")
         self._split_method = split_function
+
+    def set_stratify(self, stratify: bool) -> None:
+        logger.info(f"Set the split stratify flag as {stratify}")
+        self._stratify_split = stratify
 
     def generate_splitter(self) -> Any:
         """
@@ -168,26 +174,29 @@ class CVSearch:
             Any  (The best trained model over all iterations)
         """
 
-        # First, setup temporary data...
-        result_models = {}
-        result_scores = []
-
-        # ... and the cv spliter.
+        # First, define the cv splits to use.
         cv_splitter = self.generate_splitter()
+        split_indices = list(cv_splitter.split(dataset.obs, dataset.labels))
 
         # Now, setup each model iterations, either as random search or grid search.
         if random_search:
             setups = self.get_random_search_setups(parameter_space, n_iterations)
         else:
             # create the grid search setups:
+            # TODO
             pass
 
-        # Next, iterate over the setups...
-        for setup in setups:
-            # ... and perform the cross validated training
-            score, trained_model = self.validated_train(model, dataset, cv_splitter)
+        # Next, iterate over the setups and compute the score
+        model_scores = [
+            self.validated_train(model, dataset, split_indices, setup, i)
+            for i, setup in enumerate(setups)
+        ]
 
-            pass
+        # ... get the best scoring setup, and retrain over all data.
+        best_score_idx = np.argmin(model_scores)
+        best_model = model(random_state=self.random_seed, **setups[best_score_idx])
+        best_model.fit(dataset.obs, dataset.labels)
+        return best_model
 
     def get_random_search_setups(
         self, parameter_space: Dict[str, Iterable], n_iterations: int
@@ -216,7 +225,7 @@ class CVSearch:
             }
             setups.append(setup)
 
-        return setup
+        return setups
 
     def get_grid_search_setups(
         parameter_space: Dict[str, Iterable]
@@ -228,8 +237,46 @@ class CVSearch:
         # Next, create the
 
     def validated_train(
-        self, model: Any, data: MLSetup, cv_splitter: Any
-    ) -> Tuple[float, Any]:
+        self,
+        model: Any,
+        data: MLSetup,
+        splits: List[np.ndarray[int]],
+        params: Dict[str, Union[int, float, str]],
+        iteration: int,
+    ) -> float:
+        """
+        Perform training over random splits of the training data.
 
-        bp = 1
-        pass
+        Parameters
+        ----------
+        TODO
+
+        Returns
+        -------
+        float: The median score of the model trained and evaluated over all cv splits.
+        """
+
+        # Setup the model to train
+        scores = []
+        for split in splits:
+            model_setup = model(random_state=self.random_seed, **params)
+            # Get the split specific dataset...
+            cv_train_obs, cv_train_labels = (
+                data.obs.iloc[split[0]],
+                data.labels.iloc[split[0]],
+            )
+            cv_test_obs, cv_test_labels = (
+                data.obs.iloc[split[1]],
+                data.labels.iloc[split[1]],
+            )
+
+            # ... then train the model and score.
+            model_setup.fit(cv_train_obs, cv_train_labels)
+            predictions = model_setup.predict(cv_test_obs)
+            scores.append(self.scorer(cv_test_labels, predictions))
+
+        result_score = np.median(scores)
+        logger.info(
+            f"Median score for iteration {iteration} {model_setup} is: {result_score}"
+        )
+        return result_score
