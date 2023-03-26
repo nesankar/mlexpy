@@ -319,7 +319,10 @@ class ExperimentBase:
         )
         logger.info("Performing standard model training.")
 
-        if any(isinstance(value, list) for value in parameters.values()):
+        if any(
+            isinstance(value, Iterable) or isinstance(value, str)
+            for value in parameters.values()
+        ):
             raise (
                 ValueError(
                     f"One of the parameters passed to .one_shot_train() is a list. If working over a variable parameter space use .cv_train(), otherwise, make sure the values in the params dict are all singe values, and not lists."
@@ -367,7 +370,10 @@ class ExperimentBase:
         )
         logger.info("Performing cross validated model training.")
 
-        if any(isinstance(value, list) == False for value in parameters.values()):
+        if any(
+            isinstance(value, list) == False and isinstance(value, str) == True
+            for value in parameters.values()
+        ):
             raise (
                 ValueError(
                     f"One of the parameters passed to .one_shot_train() is NOT a list. Can not search over the parameter space unless all values are lists of possible values. Note: a list of length 1 is valid"
