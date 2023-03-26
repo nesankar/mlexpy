@@ -121,12 +121,10 @@ if __name__ == "__main__":
     processed_datasets = experiment_obj.process_data()
 
     # ... then train our model...
-    trained_model = experiment_obj.train_model(
-        RandomForestClassifier(
-            random_state=model_rs
-        ),  # This is why we have 2 different random states...
+    trained_model = experiment_obj.one_shot_train(
+        RandomForestClassifier,
         processed_datasets,
-        # model_algorithm.hyperparams,  # If this is passed, then cross validation search is performed, but slow.
+        parameters={"random_state": args.model_seed},
     )
 
     # Get the predictions and evaluate the performance.

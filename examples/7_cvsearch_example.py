@@ -91,7 +91,7 @@ if __name__ == "__main__":
         model_tag="example_development_model",
         process_tag="example_development_process",
         model_dir=Path(__file__).parent,
-        rnd_int=20,
+        rnd_int=args.model_seed,
     )
 
     experiment_obj.set_pipeline(IrisPipeline)
@@ -109,6 +109,7 @@ if __name__ == "__main__":
             "n_estimators": [10, 50, 100, 200],
             "max_depth": [1, 5, 10, 20, 50],
             "criterion": ["gini", "entropy", "log_loss"],
+            "random_state": [args.model_seed],
         },
     )
 
