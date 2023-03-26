@@ -116,7 +116,6 @@ class CVSearch:
         self.scorer = score_function
         self.cv_splits = n_splits
         self.rnd = np.random.RandomState(random_seed)
-        self.random_seed = random_seed
         self.test_frac = test_fraction
 
     def set_split_function(self, split_function: Callable) -> None:
@@ -194,7 +193,7 @@ class CVSearch:
 
         # ... get the best scoring setup, and retrain over all data.
         best_score_idx = np.argmin(model_scores)
-        best_model = model(random_state=self.random_seed, **setups[best_score_idx])
+        best_model = model(**setups[best_score_idx])
         best_model.fit(dataset.obs, dataset.labels)
         return best_model
 
@@ -259,7 +258,7 @@ class CVSearch:
         # Setup the model to train
         scores = []
         for split in splits:
-            model_setup = model(random_state=self.random_seed, **params)
+            model_setup = model(**params)
             # Get the split specific dataset...
             cv_train_obs, cv_train_labels = (
                 data.obs.iloc[split[0]],

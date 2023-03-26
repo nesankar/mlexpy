@@ -288,13 +288,11 @@ class ExperimentBase:
         from_file_processed_data = self.process_data(from_file=True)
         return from_file_processed_data
 
-    def train_model(
+    def one_shot_train(
         self,
         model: Any,
-        full_setup: ExperimentSetup,
-        cv_model: str = "random_search",
-        cv_iterations: int = 20,
-        params: Optional[Dict[str, Any]] = None,
+        data_setup: ExperimentSetup,
+        parameters: Optional[Dict[str, Any]] = None,
     ) -> Any:
         """
         Do model training here.
@@ -317,50 +315,26 @@ class ExperimentBase:
         Any -- the model you have trained.
         """
         logger.info(
-            f"Training over {full_setup.train_data.obs.shape[1]} features ({full_setup.train_data.obs.columns}) and {len(full_setup.train_data.obs)} examples."
+            f"Training over {data_setup.train_data.obs.shape[1]} features ({data_setup.train_data.obs.columns}) and {len(data_setup.train_data.obs)} examples."
         )
-        if params:
-            model = self.cv_train(
-                full_setup.train_data,
-                model,
-                params,
-                cv_model=cv_model,
-                random_iterations=cv_iterations,
+        logger.info("Performing standard model training.")
+
+        if any(isinstance(value, list) for value in parameters.values()):
+            raise (
+                ValueError(
+                    f"One of the parameters passed to .one_shot_train() is a list. If working over a variable parameter space use .cv_train(), otherwise, make sure the values in the params dict are all singe values, and not lists."
+                )
             )
-        else:
-            logger.info("Performing standard model training.")
-            model.fit(full_setup.train_data.obs, full_setup.train_data.labels)
+
+        model = model(**parameters)
+        model.fit(data_setup.train_data.obs, data_setup.train_data.labels)
 
         logger.info("Model trained")
         return model
 
-    def predict(
-        self, full_setup: ExperimentSetup, model: Any, proba: bool = False
-    ) -> np.ndarray:
-        """
-        Do model prediction here.
-
-        Parameters
-        ----------
-        full_setup : ExperimentSetup
-            The ExperimentSetup named tuple that stores all dataset info for training and testing.
-        model : Any
-            The model you would like to use for prediction. Must have a predict method.
-        proba : bool
-            A boolean flag to designate if probabilities should be returned. Only valid for classification problems, and if used the model must have a predict proba method.
-
-        Returns
-        -------
-        nd.array
-        """
-        if proba:
-            return model.predict_proba(full_setup.test_data.obs)
-        else:
-            return model.predict(full_setup.test_data.obs)
-
     def cv_train(
         self,
-        data_setup: MLSetup,
+        data_setup: ExperimentSetup,
         ml_model: Any,
         parameters: Dict[str, Any],
         random_search: bool = True,
@@ -388,6 +362,18 @@ class ExperimentBase:
         Any -- the trained model
         """
 
+        logger.info(
+            f"Training over {data_setup.train_data.obs.shape[1]} features ({data_setup.train_data.obs.columns}) and {len(data_setup.train_data.obs)} examples."
+        )
+        logger.info("Performing cross validated model training.")
+
+        if any(isinstance(value, list) == False for value in parameters.values()):
+            raise (
+                ValueError(
+                    f"One of the parameters passed to .one_shot_train() is NOT a list. Can not search over the parameter space unless all values are lists of possible values. Note: a list of length 1 is valid"
+                )
+            )
+
         if not self.standard_metric:
             raise NotImplementedError(
                 "No standard_metric has been set. This is likely because the ExperimentBase is being called, instead of being inherited. Try using the ClassifierExpirament or RegressionExpirament, or build a child class to inherit the ExpiramentBase."
@@ -413,8 +399,32 @@ class ExperimentBase:
             n_iterations=random_iterations,
         )
 
-        # cv_report(cv_search.cv_results_)
+        logger.info("Model trained.")
         return model
+
+    def predict(
+        self, data_setup: ExperimentSetup, model: Any, proba: bool = False
+    ) -> np.ndarray:
+        """
+        Do model prediction here.
+
+        Parameters
+        ----------
+        full_setup : ExperimentSetup
+            The ExperimentSetup named tuple that stores all dataset info for training and testing.
+        model : Any
+            The model you would like to use for prediction. Must have a predict method.
+        proba : bool
+            A boolean flag to designate if probabilities should be returned. Only valid for classification problems, and if used the model must have a predict proba method.
+
+        Returns
+        -------
+        nd.array
+        """
+        if proba:
+            return model.predict_proba(data_setup.test_data.obs)
+        else:
+            return model.predict(data_setup.test_data.obs)
 
     def add_metric(self, metric: Callable, name: str) -> None:
         """
