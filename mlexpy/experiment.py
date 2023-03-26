@@ -7,8 +7,7 @@ import logging
 from joblib import dump, load
 import sys
 from pathlib import Path
-from typing import Dict, Optional, Any, Callable, Union, Tuple, Iterable
-from functools import partial
+from typing import Dict, Optional, Any, Callable, Union, Tuple, Iterable, List
 
 from sklearn.metrics import (
     balanced_accuracy_score,
@@ -24,13 +23,9 @@ from sklearn.metrics import (
     auc,
     roc_curve,
 )
-from sklearn.model_selection import (
-    GridSearchCV,
-    RandomizedSearchCV,
-    StratifiedShuffleSplit,
-)
 
-from mlexpy.pipeline_utils import MLSetup, ExperimentSetup, cv_report, CVSearch
+
+from mlexpy.pipeline_utils import MLSetup, ExperimentSetup, CVSearch
 from mlexpy.utils import make_directory
 
 
@@ -116,7 +111,7 @@ class ExperimentBase:
         self.process_tag = process_tag
         self.model_tag = model_tag
         self.pipeline: Any
-        self.standard_cv_scorer = None
+        self.standard_cv_scorer: Callable = lambda: None
 
         # Setup model io
         if not model_storage_function:
@@ -292,7 +287,7 @@ class ExperimentBase:
         self,
         model: Any,
         data_setup: ExperimentSetup,
-        parameters: Optional[Dict[str, Any]] = None,
+        parameters: Dict[str, List[Union[int, float, str]]],
     ) -> Any:
         """
         Do model training here.
@@ -325,7 +320,7 @@ class ExperimentBase:
         ):
             raise (
                 ValueError(
-                    f"One of the parameters passed to .one_shot_train() is a list. If working over a variable parameter space use .cv_train(), otherwise, make sure the values in the params dict are all singe values, and not lists."
+                    "One of the parameters passed to .one_shot_train() is a list. If working over a variable parameter space use .cv_train(), otherwise, make sure the values in the params dict are all singe values, and not lists."
                 )
             )
 
@@ -339,7 +334,7 @@ class ExperimentBase:
         self,
         data_setup: ExperimentSetup,
         ml_model: Any,
-        parameters: Dict[str, Any],
+        parameters: Dict[str, List[Union[int, float, str]]],
         random_search: bool = True,
         random_iterations: int = 5,
         cv_split_function: Optional[Callable] = None,
@@ -371,12 +366,12 @@ class ExperimentBase:
         logger.info("Performing cross validated model training.")
 
         if any(
-            isinstance(value, list) == False and isinstance(value, str) == True
+            isinstance(value, list) is False and isinstance(value, str) is True
             for value in parameters.values()
         ):
             raise (
                 ValueError(
-                    f"One of the parameters passed to .one_shot_train() is NOT a list. Can not search over the parameter space unless all values are lists of possible values. Note: a list of length 1 is valid"
+                    "One of the parameters passed to .one_shot_train() is NOT a list. Can not search over the parameter space unless all values are lists of possible values. Note: a list of length 1 is valid"
                 )
             )
 
@@ -391,7 +386,9 @@ class ExperimentBase:
             test_fraction=self.test_cv_split,
             score_function=self.standard_cv_scorer,
             n_splits=random_iterations,
-            random_seed=self.rnd.get_state()[1][-1],  # needs to be an integer here
+            random_seed=self.rnd.get_state(legacy=False)["state"]["key"][
+                -1
+            ],  # needs to be an integer here
         )
 
         if cv_split_function:
@@ -615,7 +612,9 @@ class ClassifierExperiment(ExperimentBase):
             "confusion_matrix": confusion_matrix,
             "classification_report": classification_report,
         }
-        self.standard_cv_scorer = lambda l, p: -f1_score(l, p, average="macro")
+        self.standard_cv_scorer = lambda labels, preds: -f1_score(
+            labels, preds, average="macro"
+        )
 
     def evaluate_predictions(
         self,

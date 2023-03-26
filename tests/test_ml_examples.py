@@ -84,9 +84,8 @@ def test_regression_model_match(simple_dataframe, rs_10, rs_20, basic_processor)
     processed_datasets = experiment_obj.process_data()
 
     # ... then train our model...
-    trained_model = experiment_obj.train_model(
-        RandomForestRegressor(random_state=rs_10),
-        processed_datasets,
+    trained_model = experiment_obj.one_shot_train(
+        RandomForestRegressor, processed_datasets, parameters={"random_state": rs_10}
     )
     # Get the predictions and evaluate the performance.
     predictions = experiment_obj.predict(processed_datasets, trained_model)
@@ -173,9 +172,8 @@ def test_classification_model_match(
     processed_datasets = experiment_obj.process_data()
 
     # ... then train our model...
-    trained_model = experiment_obj.train_model(
-        XGBClassifier(random_state=rs_10),
-        processed_datasets,
+    trained_model = experiment_obj.one_shot_train(
+        XGBClassifier, processed_datasets, parameters={"random_state": rs_10}
     )
     # Get the predictions and evaluate the performance.
     predictions = experiment_obj.predict(processed_datasets, trained_model)

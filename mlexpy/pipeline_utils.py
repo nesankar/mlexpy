@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import logging
-from typing import Any, Dict, Callable, Any, Iterable, Union, List, Tuple
+from typing import Any, Dict, Callable, Union, List
 from collections import namedtuple
 
 from sklearn.model_selection import train_test_split, StratifiedShuffleSplit
@@ -147,7 +147,7 @@ class CVSearch:
         self,
         model: Any,
         dataset: MLSetup,
-        parameter_space: Dict[str, Iterable],
+        parameter_space: Dict[str, List[Union[int, float, str]]],
         random_search: bool = True,
         n_iterations: int = 30,
     ) -> Any:
@@ -198,14 +198,16 @@ class CVSearch:
         return best_model
 
     def get_random_search_setups(
-        self, parameter_space: Dict[str, Iterable], n_iterations: int
+        self,
+        parameter_space: Dict[str, List[Union[int, float, str]]],
+        n_iterations: int,
     ) -> List[Dict[str, Union[float, int, str]]]:
         """
         Create the parameter definitions over a parameter space randomly
 
         Parameters
         ----------
-        parameter_space: Dict[str, Iterable]
+        parameter_space: Dict[str, List[Union[int, float, str]]]
             A dictionary containing the parameter space setup, where the key is the parameter name, and the value is an Iterable of possible values.
 
         n_iterations: int
@@ -226,20 +228,18 @@ class CVSearch:
 
         return setups
 
-    def get_grid_search_setups(
-        parameter_space: Dict[str, Iterable]
-    ) -> List[Dict[str, Union[float, int, str]]]:
+    # def get_grid_search_setups(
+    #     parameter_space: Dict[str, Iterable]
+    # ) -> List[Dict[str, Union[float, int, str]]]:
 
-        # First, setup an index range dictionary for each of the parameters
-        param_ranges = {param: len(vals) for param, vals in parameter_space.items()}
-
-        # Next, create the
+    #     # TODO
+    #     return
 
     def validated_train(
         self,
         model: Any,
         data: MLSetup,
-        splits: List[np.ndarray[int]],
+        splits: List[np.ndarray],
         params: Dict[str, Union[int, float, str]],
         iteration: int,
     ) -> float:
