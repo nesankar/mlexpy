@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import logging
-from typing import Any, Dict, Callable, Union, List, Iterable
+from typing import Any, Dict, Callable, Union, List
 from collections import namedtuple
 from itertools import product
 
@@ -71,32 +71,6 @@ def get_stratified_train_test_data(
         )
 
     return ExperimentSetup(MLSetup(X_train, y_train), MLSetup(X_test, y_test))
-
-
-def cv_report(results: Dict[str, Any], n_top: int = 5) -> None:
-
-    """Print out a cross validation result following sklearn cross validation.
-
-    Parameters
-    ----------
-    results : Dict[str, Any]
-        The dictionary storing cross validation result models, and performance statistics.
-
-    n_top : int
-        The defined number of n top performing results to print out.
-
-    Returns
-    -------
-    None
-    """
-    for i in range(1, n_top + 1):
-        candidates = np.flatnonzero(results["rank_test_score"] == i)
-        for candidate in candidates:
-            print(f"Model with rank: {i}")
-            print(
-                f"""Mean validation score: {results["mean_test_score"][candidate]} (std: {results["std_test_score"][candidate]})"""
-            )
-            print(f"""Parameters: {results["params"][candidate]}\n""")
 
 
 class CVSearch:
@@ -179,16 +153,16 @@ class CVSearch:
         split_indices = list(cv_splitter.split(dataset.obs, dataset.labels))
 
         # Now, setup each model iterations, either as random search or grid search. But default to grid search if less than n_iterations.
-        setups = 1
+        setup_count = 1
         for parameter_values in parameter_space.values():
-            setups *= len(parameter_values)
+            setup_count *= len(parameter_values)
 
-        if random_search and setups > n_iterations:
+        if random_search and setup_count > n_iterations:
             setups = self.get_random_search_setups(parameter_space, n_iterations)
         else:
-            if setups < n_iterations:
+            if setup_count < n_iterations:
                 logger.info(
-                    f"Because there are less possible options ({setups}) than desired iterations ({n_iterations}), doing grid search."
+                    f"Because there are less possible options ({setup_count}) than desired iterations ({n_iterations}), doing grid search."
                 )
             setups = self.get_grid_search_setups(parameter_space)
 
@@ -236,7 +210,7 @@ class CVSearch:
         return setups
 
     def get_grid_search_setups(
-        self, parameter_space: Dict[str, Iterable]
+        self, parameter_space: Dict[str, List[Union[int, float, str]]]
     ) -> List[Dict[str, Union[float, int, str]]]:
         """
         Create the parameter definitions over in a grid.
