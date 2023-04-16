@@ -1,8 +1,9 @@
 import numpy as np
 import pandas as pd
 import logging
-from typing import Any, Dict, Callable, Union, List
+from typing import Any, Dict, Callable, Union, List, Iterable
 from collections import namedtuple
+from itertools import product
 
 from sklearn.model_selection import train_test_split, StratifiedShuffleSplit
 
@@ -181,9 +182,7 @@ class CVSearch:
         if random_search:
             setups = self.get_random_search_setups(parameter_space, n_iterations)
         else:
-            # create the grid search setups:
-            # TODO
-            pass
+            setups = self.get_grid_search_setups(parameter_space)
 
         # Next, iterate over the setups and compute the score
         model_scores = [
@@ -228,12 +227,41 @@ class CVSearch:
 
         return setups
 
-    # def get_grid_search_setups(
-    #     parameter_space: Dict[str, Iterable]
-    # ) -> List[Dict[str, Union[float, int, str]]]:
+    def get_grid_search_setups(
+        self, parameter_space: Dict[str, Iterable]
+    ) -> List[Dict[str, Union[float, int, str]]]:
+        """
+        Create the parameter definitions over in a grid.
 
-    #     # TODO
-    #     return
+        Parameters
+        ----------
+        parameter_space: Dict[str, List[Union[int, float, str]]]
+            A dictionary containing the parameter space setup, where the key is the parameter name, and the value is an Iterable of possible values.
+
+
+        Return
+        ------
+        List[Dict[str, Union[float, int, str]]]
+        """
+
+        # First create the combinations...
+        options = [values for values in parameter_space.values()]
+        possible_setups = product(*options)
+
+        # ... and log how many setups there are...
+        setups = 1
+        for parameter_values in options:
+            setups *= len(parameter_values)
+        logger.info(
+            f"Created {setups} setups to evaluate when griding the parameter space."
+        )
+
+        # ... then structure this for output as a list of dicts when returned
+        parameter_names = list(parameter_space.keys())
+        return [
+            {parameter_names[i]: value for i, value in enumerate(setup)}
+            for setup in possible_setups
+        ]
 
     def validated_train(
         self,
