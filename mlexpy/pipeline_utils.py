@@ -178,10 +178,18 @@ class CVSearch:
         cv_splitter = self.generate_splitter()
         split_indices = list(cv_splitter.split(dataset.obs, dataset.labels))
 
-        # Now, setup each model iterations, either as random search or grid search.
-        if random_search:
+        # Now, setup each model iterations, either as random search or grid search. But default to grid search if less than n_iterations.
+        setups = 1
+        for parameter_values in parameter_space.values():
+            setups *= len(parameter_values)
+
+        if random_search and setups > n_iterations:
             setups = self.get_random_search_setups(parameter_space, n_iterations)
         else:
+            if setups < n_iterations:
+                logger.info(
+                    f"Because there are less possible options ({setups}) than desired iterations ({n_iterations}), doing grid search."
+                )
             setups = self.get_grid_search_setups(parameter_space)
 
         # Next, iterate over the setups and compute the score
