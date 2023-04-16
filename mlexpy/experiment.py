@@ -52,8 +52,8 @@ class ExperimentBase:
         The number of splits to perform in any cv hyperparameter grid search.
     metric_dict
         A Dictionary of metrics to use to evaluate the model predictions.
-    standard_metric
-        The "standard metric" to use. This is what will be use in CV hyperparameter search as an objective.
+    self.standard_cv_scorer
+        The "standard cv metric" to use. This is what will be use in CV hyperparameter search as an loss function to minimize.
     process_tag
         A string to name the data processing methods. Used in naming the files that are dumped to disk.
     model_tag
@@ -107,7 +107,6 @@ class ExperimentBase:
         self.rnd = np.random.RandomState(rnd_int)
         self.cv_split_count = cv_split_count
         self.metric_dict: Dict[str, Callable] = {}
-        self.standard_metric = ""
         self.process_tag = process_tag
         self.model_tag = model_tag
         self.pipeline: Any
@@ -375,13 +374,6 @@ class ExperimentBase:
                 )
             )
 
-        if not self.standard_metric:
-            raise NotImplementedError(
-                "No standard_metric has been set. This is likely because the ExperimentBase is being called, instead of being inherited. Try using the ClassifierExpirament or RegressionExpirament, or build a child class to inherit the ExpiramentBase."
-            )
-
-        # do some metric handling here:
-
         cv_searcher = CVSearch(
             test_fraction=self.test_cv_split,
             score_function=self.standard_cv_scorer,
@@ -541,8 +533,8 @@ class ClassifierExperiment(ExperimentBase):
             The number of splits to perform in any cv hyperparameter grid search.
         self.metric_dict
             A Dictionary of metrics to use to evaluate the model predictions.
-        self.standard_metric
-            The "standard metric" to use. This is what will be use in CV hyperparameter search as an objective.
+        self.standard_cv_scorer
+            The "standard cv metric" to use. This is what will be use in CV hyperparameter search as an loss function to minimize.
         self.process_tag
             A string to name the data processing methods. Used in naming the files that are dumped to disk.
         self.model_tag
@@ -603,7 +595,6 @@ class ClassifierExperiment(ExperimentBase):
             model_tag,
             process_tag,
         )
-        self.standard_metric = "f1_macro"
         self.metric_dict = {
             "f1": f1_score,
             "log_loss": log_loss,
@@ -819,8 +810,8 @@ class RegressionExperiment(ExperimentBase):
             The number of splits to perform in any cv hyperparameter grid search.
         self.metric_dict
             A Dictionary of metrics to use to evaluate the model predictions.
-        self.standard_metric
-            The "standard metric" to use. This is what will be use in CV hyperparameter search as an objective.
+        self.standard_cv_scorer
+            The "standard cv metric" to use. This is what will be use in CV hyperparameter search as an loss function to minimize.
         self.process_tag
             A string to name the data processing methods. Used in naming the files that are dumped to disk.
         self.model_tag
@@ -876,11 +867,13 @@ class RegressionExperiment(ExperimentBase):
             model_tag,
             process_tag,
         )
-        self.standard_metric = "neg_root_mean_squared_error"
         self.metric_dict = {
             "mse": mean_squared_error,
             "mae": mean_absolute_error,
         }
+        self.standard_cv_scorer = lambda labels, preds: np.sqrt(
+            mean_squared_error(labels, preds)
+        )
 
     def evaluate_predictions(
         self,
