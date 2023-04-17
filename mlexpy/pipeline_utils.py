@@ -1,11 +1,11 @@
 import numpy as np
 import pandas as pd
 import logging
-from typing import Any, Dict, Callable, Union, List, Tuple
+from typing import Any, Dict, Callable, Union, List
 from collections import namedtuple
 from itertools import product
 
-from sklearn.model_selection import train_test_split, StratifiedShuffleSplit
+from sklearn.model_selection import StratifiedShuffleSplit, train_test_split
 
 
 logging.basicConfig(level=logging.INFO)
@@ -298,7 +298,7 @@ class CrossValidation:
         logger.info(
             f"Median score for iteration {iteration} {model_setup} is: {result_score}"
         )
-        return
+        return result_score
 
     def validated_eval(
         self,
