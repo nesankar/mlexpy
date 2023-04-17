@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import logging
-from typing import Any, Dict, Callable, Union, List
+from typing import Any, Dict, Callable, Union, List, Tuple
 from collections import namedtuple
 from itertools import product
 
@@ -16,6 +16,7 @@ logger.setLevel(logging.INFO)
 """Some ML utility tools."""
 MLSetup = namedtuple("MLSetup", ["obs", "labels"])
 ExperimentSetup = namedtuple("ExperimentSetup", ["train_data", "test_data"])
+CVEval = namedtuple("CVEval", ["mean", "median", "std"])
 
 
 def get_stratified_train_test_data(
@@ -73,7 +74,7 @@ def get_stratified_train_test_data(
     return ExperimentSetup(MLSetup(X_train, y_train), MLSetup(X_test, y_test))
 
 
-class CVSearch:
+class CrossValidation:
     """A class to perform cross validated evaluation and training for any given ml model."""
 
     def __init__(
@@ -258,7 +259,16 @@ class CVSearch:
 
         Parameters
         ----------
-        TODO
+        model : Any
+            The model class you would like to train.
+        data : MLSetup
+            The data that you would like to use for the CV eval. (In this case the test data).
+        splits : List[np.ndarray]
+            A list of the indices that define the specific splitting of the data.
+        params : Dict[str, Union[int, float, str]]
+            A dictionary defining the specific parameters of the model to be trained with.
+        iteration : int
+            The current iteration of the CVSearch -- only used for logging.
 
         Returns
         -------
@@ -288,4 +298,53 @@ class CVSearch:
         logger.info(
             f"Median score for iteration {iteration} {model_setup} is: {result_score}"
         )
-        return result_score
+        return
+
+    def validated_eval(
+        self,
+        model: Any,
+        data: MLSetup,
+        splits: List[np.ndarray],
+        metric: Callable,
+    ) -> CVEval:
+        """
+        Perform training over random splits of the training data.
+
+        Parameters
+        ----------
+        model : Any
+            The trained model you would like to make predictions for.
+        data : MLSetup
+            The data that you would like to use for the CV eval. (In this case the test data).
+        splits : List[np.ndarray]
+            A list of the indices that define the specific splitting of the data.
+        metric : Callable
+            The metric function to use for evaluation.
+
+
+        Returns
+        -------
+        float: The median score of the model trained and evaluated over all cv splits.
+        """
+
+        # Setup the model to train
+        scores = []
+        for split in splits:
+            # Get the split specific dataset...
+            cv_test_obs, cv_test_labels = (
+                data.obs.iloc[split[1]],
+                data.labels.iloc[split[1]],
+            )
+
+            # ... then train the model and score.
+            predictions = model.predict(cv_test_obs)
+            scores.append(metric(cv_test_labels, predictions))
+
+        result_median = np.median(scores)
+        result_mean = np.mean(scores)
+        result_std = np.std(scores)
+
+        logger.info(
+            f"Resulting mean, median, std. dev. are: {result_mean}, {result_median}, {result_std}."
+        )
+        return CVEval(result_mean, result_median, result_std)

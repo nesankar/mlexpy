@@ -25,7 +25,7 @@ from sklearn.metrics import (
 )
 
 
-from mlexpy.pipeline_utils import MLSetup, ExperimentSetup, CVSearch
+from mlexpy.pipeline_utils import MLSetup, ExperimentSetup, CrossValidation
 from mlexpy.utils import make_directory
 
 
@@ -374,7 +374,7 @@ class ExperimentBase:
                 )
             )
 
-        cv_searcher = CVSearch(
+        cv_searcher = CrossValidation(
             test_fraction=self.test_cv_split,
             score_function=self.standard_cv_scorer,
             n_splits=random_iterations,
