@@ -502,13 +502,38 @@ def test_cv_classification_model_match(
         ]
     )
 
-    # Test that I can create probabs...
-    probabilities = experiment_obj.predict(
-        processed_datasets, trained_model, proba=True
-    )
-    # ... and that they can be evaluated...
-    experiment_obj.evaluate_predictions(
-        processed_datasets.test_data.labels,
+    # Test that I can do cv evaluations twice
+
+    cv_eval_1 = experiment_obj.evaluate_predictions_cross_validation(
+        metric_function=experiment_obj.metric_dict["log_loss"],
         predictions=predictions,
-        class_probabilities=probabilities,
+        data=processed_datasets.test_data,
+        random_iterations=5,
     )
+    cv_eval_2 = experiment_obj.evaluate_predictions_cross_validation(
+        metric_function=experiment_obj.metric_dict["log_loss"],
+        predictions=predictions,
+        data=processed_datasets.test_data,
+        random_iterations=5,
+    )
+    cv_eval_3 = new_experiment.evaluate_predictions_cross_validation(
+        metric_function=experiment_obj.metric_dict["log_loss"],
+        predictions=new_predictions,
+        data=processed_datasets.test_data,
+        random_iterations=5,
+    )
+
+    # make sure that these 2 evals have he same values
+    assert cv_eval_1.mean == cv_eval_2.mean
+    "The mean of the 2 evaluation scores is not the same when it should be."
+    assert cv_eval_1.median == cv_eval_2.median
+    "The median of the 2 evaluation scores is not the same when it should be."
+    assert cv_eval_1.std == cv_eval_2.std
+    "The standard deviation of the 2 evaluation scores is not the same when it should be."
+
+    assert cv_eval_1.mean == cv_eval_3.mean
+    "The mean of the 2 evaluation scores is not the same when it should be with a loaded model."
+    assert cv_eval_1.median == cv_eval_3.median
+    "The median of the 2 evaluation scores is not the same when it should be with a loaded model."
+    assert cv_eval_1.std == cv_eval_3.std
+    "The standard deviation of the 2 evaluation scores is not the same when it should be with a loaded model."
