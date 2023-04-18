@@ -302,9 +302,8 @@ class CrossValidation:
 
     def validated_eval(
         self,
-        model: Any,
+        predictions: np.ndarray,
         data: MLSetup,
-        splits: List[np.ndarray],
         metric: Callable,
     ) -> CVEval:
         """
@@ -312,39 +311,32 @@ class CrossValidation:
 
         Parameters
         ----------
-        model : Any
-            The trained model you would like to make predictions for.
+        predictions : np.ndarray
+            The entire set of predictions made on the test set.
         data : MLSetup
             The data that you would like to use for the CV eval. (In this case the test data).
-        splits : List[np.ndarray]
-            A list of the indices that define the specific splitting of the data.
         metric : Callable
             The metric function to use for evaluation.
 
-
         Returns
         -------
-        float: The median score of the model trained and evaluated over all cv splits.
+        CVEval : A named tuple data structure of the result, "dot" indexed with mean, median, and std.
         """
+
+        # First, define the cv splits to use.
+        cv_splitter = self.generate_splitter()
+        split_indices = list(cv_splitter.split(data.obs, data.labels))
 
         # Setup the model to train
         scores = []
-        for split in splits:
+        for split in split_indices:
             # Get the split specific dataset...
-            cv_test_obs, cv_test_labels = (
-                data.obs.iloc[split[1]],
-                data.labels.iloc[split[1]],
-            )
+            cv_test_labels = data.labels.iloc[split[1]]
 
-            # ... then train the model and score.
-            predictions = model.predict(cv_test_obs)
-            scores.append(metric(cv_test_labels, predictions))
+            scores.append(metric(cv_test_labels, predictions[split[1]]))
 
         result_median = np.median(scores)
         result_mean = np.mean(scores)
         result_std = np.std(scores)
 
-        logger.info(
-            f"Resulting mean, median, std. dev. are: {result_mean}, {result_median}, {result_std}."
-        )
         return CVEval(result_mean, result_median, result_std)

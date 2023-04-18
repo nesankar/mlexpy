@@ -25,7 +25,7 @@ from sklearn.metrics import (
 )
 
 
-from mlexpy.pipeline_utils import MLSetup, ExperimentSetup, CrossValidation
+from mlexpy.pipeline_utils import MLSetup, ExperimentSetup, CrossValidation, CVEval
 from mlexpy.utils import make_directory
 
 
@@ -513,6 +513,53 @@ class ExperimentBase:
             loaded_model = load(model_path)
         logger.info(f"Retrieved {self.model_tag} from: {model_path}")
         return loaded_model
+
+    def evaluate_predictions_cross_validation(
+        self,
+        metric_function: Callable,
+        predictions: np.ndarray,
+        data: MLSetup,
+        random_iterations: int,
+    ) -> CVEval:
+        """Given a trained model and an experiment setup, perform a cross validation of the evaluation.
+        This is analogous to bootstrapping samples from the predictions, and then evaluating the metric
+        on each bootstrapped sample.
+
+        Parameters
+        ----------
+        metric_function : Callable
+            The evaluation function you would like to use. It must accept the ground truth, then the predictions.
+        predictions : np.ndarray
+            The entire set of predictions made on the test set.
+        data : MLSetup
+            This is the MLSetup named tuple to evaluate against. Note it should be test data.
+        random_iterations : int
+            How many samples to generate?
+
+        Return
+        ------
+        CVEval : A named tuple data structure of the result, "dot" indexed with mean, median, and std.
+        """
+
+        # First, setup the cross validation class
+        cross_validator = CrossValidation(
+            test_fraction=self.test_cv_split,
+            score_function=self.standard_cv_scorer,
+            n_splits=random_iterations,
+            random_seed=self.rnd.get_state(legacy=False)["state"]["key"][
+                -1
+            ],  # needs to be an integer here
+        )
+
+        # Then do the cross validation evaluation
+        result = cross_validator.validated_eval(
+            data=data, predictions=predictions, metric=metric_function
+        )
+        print(
+            f"\nThe {metric_function} cross validated scores are: \n mean: {result.mean}, median: {result.median}, standard deviation: {result.std}."
+        )
+
+        return result
 
 
 class ClassifierExperiment(ExperimentBase):

@@ -102,7 +102,7 @@ if __name__ == "__main__":
     # ... then train our model...
     trained_model = experiment_obj.cv_train(
         ml_model=RandomForestClassifier,
-        random_iterations=10,
+        random_iterations=5,
         random_search=True,
         data_setup=processed_datasets,
         parameters={
@@ -124,7 +124,10 @@ if __name__ == "__main__":
         class_probabilities=class_probabilities,
     )
 
-    # ... also evaluate the ROC based metrics
-    roc_results = experiment_obj.evaluate_roc_metrics(
-        processed_datasets, class_probabilities, trained_model
+    # Lastly, we can evaluate the model using cross validation
+    cv_eval = experiment_obj.evaluate_predictions_cross_validation(
+        metric_function=experiment_obj.metric_dict["balanced_accuracy"],
+        predictions=predictions,
+        data=processed_datasets.test_data,
+        random_iterations=10,
     )
