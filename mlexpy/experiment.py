@@ -7,7 +7,7 @@ import logging
 from joblib import dump, load
 import sys
 from pathlib import Path
-from typing import Dict, Optional, Any, Callable, Union, Tuple
+from typing import Dict, Optional, Any, Callable, Union, Tuple, Iterable, List
 
 from sklearn.metrics import (
     balanced_accuracy_score,
@@ -23,13 +23,9 @@ from sklearn.metrics import (
     auc,
     roc_curve,
 )
-from sklearn.model_selection import (
-    GridSearchCV,
-    RandomizedSearchCV,
-    StratifiedShuffleSplit,
-)
 
-from mlexpy.pipeline_utils import MLSetup, ExperimentSetup, cv_report
+
+from mlexpy.pipeline_utils import MLSetup, ExperimentSetup, CrossValidation, CVEval
 from mlexpy.utils import make_directory
 
 
@@ -56,8 +52,8 @@ class ExperimentBase:
         The number of splits to perform in any cv hyperparameter grid search.
     metric_dict
         A Dictionary of metrics to use to evaluate the model predictions.
-    standard_metric
-        The "standard metric" to use. This is what will be use in CV hyperparameter search as an objective.
+    self.standard_cv_scorer
+        The "standard cv metric" to use. This is what will be use in CV hyperparameter search as an loss function to minimize.
     process_tag
         A string to name the data processing methods. Used in naming the files that are dumped to disk.
     model_tag
@@ -111,10 +107,10 @@ class ExperimentBase:
         self.rnd = np.random.RandomState(rnd_int)
         self.cv_split_count = cv_split_count
         self.metric_dict: Dict[str, Callable] = {}
-        self.standard_metric = ""
         self.process_tag = process_tag
         self.model_tag = model_tag
         self.pipeline: Any
+        self.standard_cv_scorer: Callable = lambda: None
 
         # Setup model io
         if not model_storage_function:
@@ -286,13 +282,11 @@ class ExperimentBase:
         from_file_processed_data = self.process_data(from_file=True)
         return from_file_processed_data
 
-    def train_model(
+    def one_shot_train(
         self,
         model: Any,
-        full_setup: ExperimentSetup,
-        cv_model: str = "random_search",
-        cv_iterations: int = 20,
-        params: Optional[Dict[str, Any]] = None,
+        data_setup: ExperimentSetup,
+        parameters: Dict[str, List[Union[int, float, str]]],
     ) -> Any:
         """
         Do model training here.
@@ -315,71 +309,34 @@ class ExperimentBase:
         Any -- the model you have trained.
         """
         logger.info(
-            f"Training over {full_setup.train_data.obs.shape[1]} features ({full_setup.train_data.obs.columns}) and {len(full_setup.train_data.obs)} examples."
+            f"Training over {data_setup.train_data.obs.shape[1]} features ({data_setup.train_data.obs.columns}) and {len(data_setup.train_data.obs)} examples."
         )
-        if params:
-            model = self.cv_search(
-                full_setup.train_data,
-                model,
-                params,
-                cv_model=cv_model,
-                random_iterations=cv_iterations,
+        logger.info("Performing standard model training.")
+
+        if any(
+            isinstance(value, Iterable) or isinstance(value, str)
+            for value in parameters.values()
+        ):
+            raise (
+                ValueError(
+                    "One of the parameters passed to .one_shot_train() is a list. If working over a variable parameter space use .cv_train(), otherwise, make sure the values in the params dict are all singe values, and not lists."
+                )
             )
-        else:
-            logger.info("Performing standard model training.")
-            model.fit(full_setup.train_data.obs, full_setup.train_data.labels)
+
+        model = model(**parameters)
+        model.fit(data_setup.train_data.obs, data_setup.train_data.labels)
 
         logger.info("Model trained")
         return model
 
-    def predict(
-        self, full_setup: ExperimentSetup, model: Any, proba: bool = False
-    ) -> np.ndarray:
-        """
-        Do model prediction here.
-
-        Parameters
-        ----------
-        full_setup : ExperimentSetup
-            The ExperimentSetup named tuple that stores all dataset info for training and testing.
-        model : Any
-            The model you would like to use for prediction. Must have a predict method.
-        proba : bool
-            A boolean flag to designate if probabilities should be returned. Only valid for classification problems, and if used the model must have a predict proba method.
-
-        Returns
-        -------
-        nd.array
-        """
-        if proba:
-            return model.predict_proba(full_setup.test_data.obs)
-        else:
-            return model.predict(full_setup.test_data.obs)
-
-    def cv_splits(self, n_splits: int = 5) -> StratifiedShuffleSplit:
-        """
-        Method to define how to create cross validation splits. By default is stratified.
-
-        Parameters
-        ----------
-        n_splits : int
-            The number of splits (folds) created from the data in an iterations.
-
-        Returns
-        -------
-        StratifiedShuffleSplit
-        """
-        return StratifiedShuffleSplit(
-            n_splits=n_splits, test_size=self.test_cv_split, random_state=self.rnd
-        )
-
-    def cv_search(
+    def cv_train(
         self,
-        data_setup: MLSetup,
+        data_setup: ExperimentSetup,
         ml_model: Any,
-        parameters: Dict[str, Any],
-        cv_model: str = "random_search",
+        parameters: Dict[str, List[Union[int, float, str]]],
+        random_search: bool = True,
         random_iterations: int = 5,
+        cv_split_function: Optional[Callable] = None,
     ) -> Any:
         """
         Perform cross-validated search over the hyperparameters for the best model parameters.
@@ -402,34 +359,67 @@ class ExperimentBase:
         Any -- the trained model
         """
 
-        if not self.standard_metric:
-            raise NotImplementedError(
-                "No standard_metric has been set. This is likely because the ExperimentBase is being called, instead of being inherited. Try using the ClassifierExpirament or RegressionExpirament, or build a child class to inherit the ExpiramentBase."
+        logger.info(
+            f"Training over {data_setup.train_data.obs.shape[1]} features ({data_setup.train_data.obs.columns}) and {len(data_setup.train_data.obs)} examples."
+        )
+        logger.info("Performing cross validated model training.")
+
+        if any(
+            isinstance(value, list) is False and isinstance(value, str) is True
+            for value in parameters.values()
+        ):
+            raise (
+                ValueError(
+                    "One of the parameters passed to .one_shot_train() is NOT a list. Can not search over the parameter space unless all values are lists of possible values. Note: a list of length 1 is valid"
+                )
             )
 
-        if cv_model == "grid_search":
-            cv_search = GridSearchCV(
-                ml_model,
-                parameters,
-                scoring=self.standard_metric,
-                cv=self.cv_splits(self.cv_split_count),
-                n_jobs=1,
-            )
+        cv_searcher = CrossValidation(
+            test_fraction=self.test_cv_split,
+            score_function=self.standard_cv_scorer,
+            n_splits=random_iterations,
+            random_seed=self.rnd.get_state(legacy=False)["state"]["key"][
+                -1
+            ],  # needs to be an integer here
+        )
+
+        if cv_split_function:
+            cv_searcher.set_split_function(cv_split_function)
+
+        model = cv_searcher.train_model(
+            ml_model,
+            data_setup.train_data,
+            parameter_space=parameters,
+            random_search=random_search,
+            n_iterations=random_iterations,
+        )
+
+        logger.info("Model trained.")
+        return model
+
+    def predict(
+        self, data_setup: ExperimentSetup, model: Any, proba: bool = False
+    ) -> np.ndarray:
+        """
+        Do model prediction here.
+
+        Parameters
+        ----------
+        full_setup : ExperimentSetup
+            The ExperimentSetup named tuple that stores all dataset info for training and testing.
+        model : Any
+            The model you would like to use for prediction. Must have a predict method.
+        proba : bool
+            A boolean flag to designate if probabilities should be returned. Only valid for classification problems, and if used the model must have a predict proba method.
+
+        Returns
+        -------
+        nd.array
+        """
+        if proba:
+            return model.predict_proba(data_setup.test_data.obs)
         else:
-            cv_search = RandomizedSearchCV(
-                ml_model,
-                parameters,
-                n_iter=random_iterations,
-                scoring=self.standard_metric,
-                cv=self.cv_splits(self.cv_split_count),
-                verbose=2,
-                refit=True,
-                n_jobs=1,
-            )
-        logger.info(f"Beginning CV search using {cv_model} ...")
-        cv_search.fit(data_setup.obs, data_setup.labels)
-        cv_report(cv_search.cv_results_)
-        return cv_search.best_estimator_
+            return model.predict(data_setup.test_data.obs)
 
     def add_metric(self, metric: Callable, name: str) -> None:
         """
@@ -524,6 +514,53 @@ class ExperimentBase:
         logger.info(f"Retrieved {self.model_tag} from: {model_path}")
         return loaded_model
 
+    def evaluate_predictions_cross_validation(
+        self,
+        metric_function: Callable,
+        predictions: np.ndarray,
+        data: MLSetup,
+        random_iterations: int,
+    ) -> CVEval:
+        """Given a trained model and an experiment setup, perform a cross validation of the evaluation.
+        This is analogous to bootstrapping samples from the predictions, and then evaluating the metric
+        on each bootstrapped sample.
+
+        Parameters
+        ----------
+        metric_function : Callable
+            The evaluation function you would like to use. It must accept the ground truth, then the predictions.
+        predictions : np.ndarray
+            The entire set of predictions made on the test set.
+        data : MLSetup
+            This is the MLSetup named tuple to evaluate against. Note it should be test data.
+        random_iterations : int
+            How many samples to generate?
+
+        Return
+        ------
+        CVEval : A named tuple data structure of the result, "dot" indexed with mean, median, and std.
+        """
+
+        # First, setup the cross validation class
+        cross_validator = CrossValidation(
+            test_fraction=self.test_cv_split,
+            score_function=self.standard_cv_scorer,
+            n_splits=random_iterations,
+            random_seed=self.rnd.get_state(legacy=False)["state"]["key"][
+                -1
+            ],  # needs to be an integer here
+        )
+
+        # Then do the cross validation evaluation
+        result = cross_validator.validated_eval(
+            data=data, predictions=predictions, metric=metric_function
+        )
+        print(
+            f"\nThe {metric_function} cross validated scores are: \n mean: {result.mean}, median: {result.median}, standard deviation: {result.std}."
+        )
+
+        return result
+
 
 class ClassifierExperiment(ExperimentBase):
     """
@@ -543,8 +580,8 @@ class ClassifierExperiment(ExperimentBase):
             The number of splits to perform in any cv hyperparameter grid search.
         self.metric_dict
             A Dictionary of metrics to use to evaluate the model predictions.
-        self.standard_metric
-            The "standard metric" to use. This is what will be use in CV hyperparameter search as an objective.
+        self.standard_cv_scorer
+            The "standard cv metric" to use. This is what will be use in CV hyperparameter search as an loss function to minimize.
         self.process_tag
             A string to name the data processing methods. Used in naming the files that are dumped to disk.
         self.model_tag
@@ -605,7 +642,6 @@ class ClassifierExperiment(ExperimentBase):
             model_tag,
             process_tag,
         )
-        self.standard_metric = "f1_macro"
         self.metric_dict = {
             "f1": f1_score,
             "log_loss": log_loss,
@@ -614,6 +650,9 @@ class ClassifierExperiment(ExperimentBase):
             "confusion_matrix": confusion_matrix,
             "classification_report": classification_report,
         }
+        self.standard_cv_scorer = lambda labels, preds: -f1_score(
+            labels, preds, average="macro"
+        )
 
     def evaluate_predictions(
         self,
@@ -818,8 +857,8 @@ class RegressionExperiment(ExperimentBase):
             The number of splits to perform in any cv hyperparameter grid search.
         self.metric_dict
             A Dictionary of metrics to use to evaluate the model predictions.
-        self.standard_metric
-            The "standard metric" to use. This is what will be use in CV hyperparameter search as an objective.
+        self.standard_cv_scorer
+            The "standard cv metric" to use. This is what will be use in CV hyperparameter search as an loss function to minimize.
         self.process_tag
             A string to name the data processing methods. Used in naming the files that are dumped to disk.
         self.model_tag
@@ -875,11 +914,13 @@ class RegressionExperiment(ExperimentBase):
             model_tag,
             process_tag,
         )
-        self.standard_metric = "neg_root_mean_squared_error"
         self.metric_dict = {
             "mse": mean_squared_error,
             "mae": mean_absolute_error,
         }
+        self.standard_cv_scorer = lambda labels, preds: np.sqrt(
+            mean_squared_error(labels, preds)
+        )
 
     def evaluate_predictions(
         self,

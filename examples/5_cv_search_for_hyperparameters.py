@@ -113,17 +113,20 @@ if __name__ == "__main__":
     ml_model_data = method_definition_function(classifier=True)
 
     # Now we instantiate the model from the ml_model_data.model attribute...
-    ml_model = ml_model_data.model(random_state=model_rs)
+    ml_model = ml_model_data.model
+
+    model_params = ml_model_data.hyperparams
+    model_params["random_state"] = [args.model_seed]
 
     # ... then train our model. This time pass the ml_model_data hyperparameters to search over (this is a dictionary).
     # By default, if the params are passed, the a form of cross validated search will be performed over the provided
     # parameters. Unless defined otherwise, random search over the hyperparameter space is performed.
-    trained_model = experiment_obj.train_model(
-        ml_model,
+    trained_model = experiment_obj.cv_train(
         processed_datasets,
-        params=ml_model_data.hyperparams,  # If this is passed, then cross validation search is performed, but slow.
-        cv_model="random_search",
-        cv_iterations=20,
+        ml_model,
+        parameters=model_params,  # If this is passed, then cross validation search is performed, but slow.
+        random_search=True,
+        random_iterations=20,
     )
 
     # Get the predictions and evaluate the performance.

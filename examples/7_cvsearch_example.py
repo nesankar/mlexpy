@@ -5,7 +5,7 @@ from typing import List
 import argparse
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.datasets import load_iris
-from mlexpy import pipeline_utils, utils, experiment
+from mlexpy import pipeline_utils, experiment
 from from_module_example import IrisPipeline
 
 
@@ -48,7 +48,7 @@ def parse_args(args: List[str]) -> argparse.Namespace:
     return parser.parse_args(args)
 
 
-"""An example similar to the notebook previously, here with more complexity shown as a script, CL runnable, with an initial datafiltering task, and using binary classification."""
+"""An example similar to the notebook previously, here with more complexity shown as a script, and CL runnable"""
 
 if __name__ == "__main__":
     args = parse_args(sys.argv[1:])
@@ -60,30 +60,9 @@ if __name__ == "__main__":
     # First, read in the dataset as a dataframe. Because mlexpy is meant to be an exploratory/experimental tool,
     # dataframes are preferred for their readability.
     data = load_iris(as_frame=True)
-    data = data["frame"]
+    features = data["data"]
+    labels = data["target"]
 
-    # Image that we only want to keep data that is 0 or 1 target types. We can use the utils.initial_filtering() function and
-    # and a column filter dict:
-
-    # First, define the filter function, to return True for records we would like to keep...
-    def target_col_filter(input: int) -> bool:
-        """Return a True for 1 or 0 values"""
-        if input == 1 or input == 0:
-            return True
-        else:
-            return False
-
-    # ... Now create a dict, with the key for the column we want to apply this function too. The value must be a list of functions...
-    filter_fn_dict = {"target": [target_col_filter]}
-
-    # ... and lastly, now pass this and the data to initial_filtering()
-    data = utils.initial_filtering(data, filter_fn_dict)
-
-    target_col = "target"
-    labels = data[target_col]
-    features = data[[col for col in data.columns if col != target_col]]
-
-    print(f"As we can see, now the data only has 2 target values: {labels.unique()}.")
     # Now, generate the ExperimentSetup object, that splits the dataset for training and testing.
     experiment_setup = pipeline_utils.get_stratified_train_test_data(
         train_data=features,
@@ -109,10 +88,10 @@ if __name__ == "__main__":
     experiment_obj = experiment.ClassifierExperiment(
         train_setup=experiment_setup.train_data,
         test_setup=experiment_setup.test_data,
-        cv_split_count=20,
         model_tag="example_development_model",
         process_tag="example_development_process",
         model_dir=Path(__file__).parent,
+        rnd_int=args.model_seed,
     )
 
     experiment_obj.set_pipeline(IrisPipeline)
@@ -121,13 +100,19 @@ if __name__ == "__main__":
     processed_datasets = experiment_obj.process_data()
 
     # ... then train our model...
-    trained_model = experiment_obj.one_shot_train(
-        RandomForestClassifier,
-        processed_datasets,
-        parameters={"random_state": args.model_seed},
+    trained_model = experiment_obj.cv_train(
+        ml_model=RandomForestClassifier,
+        random_iterations=5,
+        random_search=True,
+        data_setup=processed_datasets,
+        parameters={
+            "n_estimators": [10, 50, 100, 200],
+            "max_depth": [1, 5, 10, 20, 50],
+            "criterion": ["gini", "entropy", "log_loss"],
+            "random_state": [args.model_seed],
+        },
     )
 
-    # Get the predictions and evaluate the performance.
     # Get the predictions and evaluate the performance.
     predictions = experiment_obj.predict(processed_datasets, trained_model)
     class_probabilities = experiment_obj.predict(
@@ -139,7 +124,10 @@ if __name__ == "__main__":
         class_probabilities=class_probabilities,
     )
 
-    # Because this is a binary classification case, we can easily perform ROC curve evaluations:
-    experiment_obj.evaluate_roc_metrics(
-        processed_datasets, class_probabilities, trained_model
+    # Lastly, we can evaluate the model using cross validation
+    cv_eval = experiment_obj.evaluate_predictions_cross_validation(
+        metric_function=experiment_obj.metric_dict["balanced_accuracy"],
+        predictions=predictions,
+        data=processed_datasets.test_data,
+        random_iterations=10,
     )

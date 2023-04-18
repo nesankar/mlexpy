@@ -167,13 +167,11 @@ if __name__ == "__main__":
     ml_model_data = method_definition_function(classifier=False)
 
     # Now we instantiate the model from the ml_model_data.model attribute...
-    ml_model = ml_model_data.model(random_state=model_rs)
+    ml_model = ml_model_data.model
 
     # ... then train our model...
-    trained_model = experiment_obj.train_model(
-        ml_model,
-        processed_datasets,
-        # model_algorithm.hyperparams,  # If this is passed, then cross validation search is performed, but slow.
+    trained_model = experiment_obj.one_shot_train(
+        ml_model, processed_datasets, parameters={"random_state": args.model_seed}
     )
 
     # Get the predictions and evaluate the performance.
