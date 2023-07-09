@@ -238,8 +238,10 @@ More detailed usage can be found in the examples and docstrings including:
 - `examples/2_store_all_models_example.py` Showing how to call the model i/o tooling to store trained models, and to load trained models generating identical predictions.
 - `examples/3_loading_models_example.py` Showing how to load stored model definitions to evaluate an existing method on "new" data.
 - `examples/4_initial_filtering_and_binary_class_example.py` Showing how to use the initial filtering tooling (`mlexpy.utils.initial_filtering()`) and a case of binary classification.
-- `examples/5_cv_search_for_hyperpareters.py` Showing how to perform hyperparameter search, and an example of a model_definition file to store ML model definitions.
-- `examples/6_regression_pca_example.py`Showing how to perform a regression example, and how to add in a possible PCA method for dimensionality reduction.
+- `examples/5_cv_search_for_hyperpareters.py` Showing how to perform hyperparameter search.
+- `examples/6_regression_pca_example.py` Showing how to perform a regression example, and how to add in a possible PCA method for dimensionality reduction.
+
+
 
 
 ### Roadmap / TODOs:
