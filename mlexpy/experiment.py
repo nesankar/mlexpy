@@ -52,7 +52,7 @@ class ExperimentBase:
         The number of splits to perform in any cv hyperparameter grid search.
     metric_dict
         A Dictionary of metrics to use to evaluate the model predictions.
-    self.standard_cv_scorer
+    standard_cv_scorer
         The "standard cv metric" to use. This is what will be use in CV hyperparameter search as an loss function to minimize.
     process_tag
         A string to name the data processing methods. Used in naming the files that are dumped to disk.
@@ -60,6 +60,8 @@ class ExperimentBase:
         A string to define the model methods. Used in naming the files that are dumped to disk.
     pipeline
         The ProcessPipeline class to use to pre-process all data prior to modeling.
+    standard_cv_scorer
+        A callable attribute that sets how CV splits are defined, the default is an function returning None, but gets set as a StratifiedShuffleSplit downstream.
 
     Methods
     -------
@@ -69,8 +71,10 @@ class ExperimentBase:
         Method used to process the raw data. This needs to be defined in the experiment's child class that the user writes.
     process_data_from_stored_models()
         Method used to process raw data, however, used when loading all data processing from disk. Ex. if evaluating a new dataset with an old model.
-    train_model(model: Any, full_setup: ExperimentSetup, cv_model: str = "random_search", cv_iterations: int = 20, params: Optional[Dict[str, Any]] = None)
-        The method to call to train the model. If a params arg is passed, then hyperparameter search is performed.
+    one_shot_train(self, ml_model: Any, data_setup: ExperimentSetup, parameters: Dict[str, List[Union[int, float, str]]]) -> Any:
+        Method to call to train the model. If a params arg is not passed, then the default parameters are used.
+    cv_train(self, ml_model: Any, data_setup: ExperimentSetup, parameters: Dict[str, List[Union[int, float, str]]], random_search: bool = True, random_iterations: int = 5, cv_split_function: Optional[Callable] = None) -> Any:
+        Method to call to train the model using cross validation for hyperparameter search.
     predict(full_setup: ExperimentSetup, model: Any, proba: bool = False)
         The method to perform predictions for a model.
     cv_splits(n_splits: int = 5)
@@ -284,7 +288,7 @@ class ExperimentBase:
 
     def one_shot_train(
         self,
-        model: Any,
+        ml_model: Any,
         data_setup: ExperimentSetup,
         parameters: Dict[str, List[Union[int, float, str]]],
     ) -> Any:
@@ -293,16 +297,12 @@ class ExperimentBase:
 
         Parameters
         ----------
-        model : Any
+        ml_model : Any
             The machine learning model you would like to train. The only requirement is that the model have a .fit() method.
-        full_setup : ExperimentSetup
-            The ExperimentSetup named tuple that stores all dataset info for training and testing.
-        cv_model : str
-            A string defining what hyperparameter search to use. Currently only options are gridsearch and randomsearch.
-        cv_iterations : int
-            If using random search, the number of random search iterations to use.
-        params : Optional[Dict[str, Any]]
-            A dictionary storing the parameter name and values to search over in the hyperparameter space.
+        data_setup : MLSetup
+            The MLSetup object to train with. Contains the training and testing data.
+        params : Optional[Dict[str, List[Union[int, float, str]]]]
+            A dictionary storing the parameter name and values to use when training.
 
         Returns
         -------
@@ -323,16 +323,16 @@ class ExperimentBase:
                 )
             )
 
-        model = model(**parameters)
-        model.fit(data_setup.train_data.obs, data_setup.train_data.labels)
+        ml_model = ml_model(**parameters)
+        ml_model.fit(data_setup.train_data.obs, data_setup.train_data.labels)
 
         logger.info("Model trained")
-        return model
+        return ml_model
 
     def cv_train(
         self,
-        data_setup: ExperimentSetup,
         ml_model: Any,
+        data_setup: ExperimentSetup,
         parameters: Dict[str, List[Union[int, float, str]]],
         random_search: bool = True,
         random_iterations: int = 5,
@@ -343,16 +343,18 @@ class ExperimentBase:
 
         Parameters
         ----------
-        data_setup : MLSetup
-            The MLSetup object to train with. Contains the training and testing data.
         ml_model : Any
             The model you would like to train with hyperparameters tuned for.
+        data_setup : MLSetup
+            The MLSetup object to train with. Contains the training and testing data.
         parameters : Dict[str, Any]
             A dictionary defining the hyperparameter space to search over. Keys are parameter names, and values are spaces. Each key-value pair is a hyperparameter dimension.
-        cv_model : str
-            A string defining the cv_search type to use. Either "random_search" or "grid_search".
+        random_search: bool
+            Argument to defined if to use random search or not. If not, a grid search is used.
         random_iterations : int
             The number of folds to use in the cross validation.
+        cv_split_function : Optional[Callable]
+            A function to  define how to perform the cross validation splitting. If not passed the default (StratifiedShuffleSplit) is used.
 
         Returns
         -------
@@ -386,7 +388,7 @@ class ExperimentBase:
         if cv_split_function:
             cv_searcher.set_split_function(cv_split_function)
 
-        model = cv_searcher.train_model(
+        ml_model = cv_searcher.train_model(
             ml_model,
             data_setup.train_data,
             parameter_space=parameters,
@@ -395,19 +397,19 @@ class ExperimentBase:
         )
 
         logger.info("Model trained.")
-        return model
+        return ml_model
 
     def predict(
-        self, data_setup: ExperimentSetup, model: Any, proba: bool = False
+        self, data_setup: ExperimentSetup, ml_model: Any, proba: bool = False
     ) -> np.ndarray:
         """
         Do model prediction here.
 
         Parameters
         ----------
-        full_setup : ExperimentSetup
+        data_setup : ExperimentSetup
             The ExperimentSetup named tuple that stores all dataset info for training and testing.
-        model : Any
+        ml_model : Any
             The model you would like to use for prediction. Must have a predict method.
         proba : bool
             A boolean flag to designate if probabilities should be returned. Only valid for classification problems, and if used the model must have a predict proba method.
@@ -417,9 +419,9 @@ class ExperimentBase:
         nd.array
         """
         if proba:
-            return model.predict_proba(data_setup.test_data.obs)
+            return ml_model.predict_proba(data_setup.test_data.obs)
         else:
-            return model.predict(data_setup.test_data.obs)
+            return ml_model.predict(data_setup.test_data.obs)
 
     def add_metric(self, metric: Callable, name: str) -> None:
         """
@@ -453,13 +455,15 @@ class ExperimentBase:
         """
         del self.metric_dict[name]
 
-    def default_store_model(self, model: Any, file_name: Optional[str] = None) -> None:
+    def default_store_model(
+        self, ml_model: Any, file_name: Optional[str] = None
+    ) -> None:
         """Given a calculated model, store it locally using joblib.
         Longer term/other considerations can be found here: https://scikit-learn.org/stable/model_persistence.html
 
         Parameters
         ----------
-        model : Any
+        ml_model : Any
             The model you would like to store.
 
         file_name : Optional[str]
@@ -474,18 +478,18 @@ class ExperimentBase:
         if not file_name:
             file_name = self.model_tag
 
-        if hasattr(model, "save_model"):
+        if hasattr(ml_model, "save_model"):
             # use the model's saving utilities, specifically beneficial wish xgboost. Can be beneficial here to use a json
-            logger.info(f"Found a save_model method in {model}")
+            logger.info(f"Found a save_model method in {ml_model}")
             model_path = self.model_dir / f"{file_name}.mdl"
-            model.save_model(model_path)
+            ml_model.save_model(model_path)
         else:
-            logger.info(f"Saving the {model} model using joblib.")
+            logger.info(f"Saving the {ml_model} model using joblib.")
             model_path = self.model_dir / f"{file_name}.joblib"
-            dump(model, model_path)
+            dump(ml_model, model_path)
         logger.info(f"Dumped {self.model_tag} to: {model_path}")
 
-    def default_load_model(self, model: Optional[Any] = None) -> Any:
+    def default_load_model(self, ml_model: Optional[Any] = None) -> Any:
         """Given a model name, load it from storage. The model is found by the model and process tag strings.
 
          Parameters
@@ -498,15 +502,15 @@ class ExperimentBase:
         None
         """
 
-        if hasattr(model, "load_model") and model:
+        if hasattr(ml_model, "load_model") and ml_model:
             # use the model's loading utilities -- specifically beneficial with xgboost
-            logger.info(f"Found a load_model method in {model}")
+            logger.info(f"Found a load_model method in {ml_model}")
             model_path = self.model_dir / f"{self.model_tag}.mdl"
             logger.info(f"Loading {self.model_tag} from: {model_path}")
-            loaded_model = model.load_model(model_path)
+            loaded_model = ml_model.load_model(model_path)
             if loaded_model is None:
                 # Handle  case where the loaded model is instantiated in the provided model inplace
-                return model
+                return ml_model
         else:
             model_path = self.model_dir / f"{self.model_tag}.joblib"
             logger.info(f"Loading {self.model_tag} from: {model_path}")
@@ -534,7 +538,7 @@ class ExperimentBase:
         data : MLSetup
             This is the MLSetup named tuple to evaluate against. Note it should be test data.
         random_iterations : int
-            How many samples to generate?
+            How many samples to generate.
 
         Return
         ------
@@ -568,24 +572,28 @@ class ClassifierExperiment(ExperimentBase):
 
     Attributes
     ----------
-        self.testing
-            The test data MLSetup named tuple.
-        self.training
-            The train data MLSetup named tuple.
-        self.test_cv_split
-            The amount of data to use in each test set in cross validation. Only used if performing hyperparameter search.
-        self.rnd
-            An np.random.RandomState seed used to set the random seed for cv splitting, or random hyperparameter search.
-        self.cv_split_count
-            The number of splits to perform in any cv hyperparameter grid search.
-        self.metric_dict
-            A Dictionary of metrics to use to evaluate the model predictions.
-        self.standard_cv_scorer
-            The "standard cv metric" to use. This is what will be use in CV hyperparameter search as an loss function to minimize.
-        self.process_tag
-            A string to name the data processing methods. Used in naming the files that are dumped to disk.
-        self.model_tag
-            A string to define the model methods. Used in naming the files that are dumped to disk.
+    testing
+        The test data MLSetup named tuple.
+    training
+        The train data MLSetup named tuple.
+    test_cv_split
+        The amount of data to use in each test set in cross validation. Only used if performing hyperparameter search.
+    rnd
+        An np.random.RandomState seed used to set the random seed for cv splitting, or random hyperparameter search.
+    cv_split_count
+        The number of splits to perform in any cv hyperparameter grid search.
+    metric_dict
+        A Dictionary of metrics to use to evaluate the model predictions.
+    standard_cv_scorer
+        The "standard cv metric" to use. This is what will be use in CV hyperparameter search as an loss function to minimize.
+    process_tag
+        A string to name the data processing methods. Used in naming the files that are dumped to disk.
+    model_tag
+        A string to define the model methods. Used in naming the files that are dumped to disk.
+    pipeline
+        The ProcessPipeline class to use to pre-process all data prior to modeling.
+    standard_cv_scorer
+        A callable attribute that sets how CV splits are defined, the default is an function returning None, but gets set as a StratifiedShuffleSplit downstream.
 
     Methods
     -------
@@ -595,8 +603,10 @@ class ClassifierExperiment(ExperimentBase):
         Method used to process the raw data. This needs to be defined in the experiment's child class that the user writes.
     process_data_from_stored_models()
         Method used to process raw data, however, used when loading all data processing from disk. Ex. if evaluating a new dataset with an old model.
-    train_model(model: Any, full_setup: ExperimentSetup, cv_model: str = "random_search", cv_iterations: int = 20, params: Optional[Dict[str, Any]] = None)
-        The method to call to train the model. If a params arg is passed, then hyperparameter search is performed.
+    one_shot_train(self, ml_model: Any, data_setup: ExperimentSetup, parameters: Dict[str, List[Union[int, float, str]]]) -> Any:
+        Method to call to train the model. If a params arg is not passed, then the default parameters are used.
+    cv_train(self, ml_model: Any, data_setup: ExperimentSetup, parameters: Dict[str, List[Union[int, float, str]]], random_search: bool = True, random_iterations: int = 5, cv_split_function: Optional[Callable] = None) -> Any:
+        Method to call to train the model using cross validation for hyperparameter search.
     predict(full_setup: ExperimentSetup, model: Any, proba: bool = False)
         The method to perform predictions for a model.
     cv_splits(n_splits: int = 5)
@@ -611,6 +621,8 @@ class ClassifierExperiment(ExperimentBase):
         Method to store a model. By default the model will be stored via joblib. Any model's native save method will be chosen here before joblib.
     default_load_model(model: Optional[Any] = None)
         Method to load a model. By default the model will be loaded via joblib. Any model's native load method will be chosen here before joblib.
+    set_pipeline(self, pipeline: Type[ProcessPipelineBase], process_tag: Optional[str]=None)
+        Method to set the current pipeline to use as the pre-processor.
     evaluate_predictions(labels: Union[pd.Series, np.ndarray], predictions: Union[pd.Series, np.ndarray], class_probabilities: Optional[np.ndarray] = None, baseline_value: Optional[Union[float, int]] = None)
         Method to evaluate the predictions via classification metrics.
     evaluate_roc_metrics(full_setup: ExperimentSetup, class_probabilities: np.ndarray, model: Any)
@@ -718,7 +730,7 @@ class ClassifierExperiment(ExperimentBase):
         self,
         full_setup: ExperimentSetup,
         class_probabilities: np.ndarray,
-        model: Any,
+        ml_model: Any,
     ) -> Dict[str, float]:
         """Perform any roc metric evaluation here. These require prediction probabilities or confidence, thus are separate
         from more standard prediction value based metrics.
@@ -729,7 +741,7 @@ class ClassifierExperiment(ExperimentBase):
             All data for the experiment. Because the AUC will be calculated from model.
         class_probabilities : Optional[np.ndarray]
             The probability prediction of each class.
-        model : Any
+        ml_model : Any
             The trained model from which the predictions will be evaluated.
 
         Returns
@@ -756,7 +768,7 @@ class ClassifierExperiment(ExperimentBase):
             print(f"""\nThe ROC AUC score is: {result_dict["roc_auc_score"]}""")
 
             dsp = RocCurveDisplay.from_estimator(
-                estimator=model,
+                estimator=ml_model,
                 X=full_setup.test_data.obs,
                 y=full_setup.test_data.labels,
             )
@@ -845,24 +857,29 @@ class RegressionExperiment(ExperimentBase):
 
     Attributes
     ----------
-        self.testing
-            The test data MLSetup named tuple.
-        self.training
-            The train data MLSetup named tuple.
-        self.test_cv_split
-            The amount of data to use in each test set in cross validation. Only used if performing hyperparameter search.
-        self.rnd
-            An np.random.RandomState seed used to set the random seed for cv splitting, or random hyperparameter search.
-        self.cv_split_count
-            The number of splits to perform in any cv hyperparameter grid search.
-        self.metric_dict
-            A Dictionary of metrics to use to evaluate the model predictions.
-        self.standard_cv_scorer
-            The "standard cv metric" to use. This is what will be use in CV hyperparameter search as an loss function to minimize.
-        self.process_tag
-            A string to name the data processing methods. Used in naming the files that are dumped to disk.
-        self.model_tag
-            A string to define the model methods. Used in naming the files that are dumped to disk.
+    testing
+        The test data MLSetup named tuple.
+    training
+        The train data MLSetup named tuple.
+    test_cv_split
+        The amount of data to use in each test set in cross validation. Only used if performing hyperparameter search.
+    rnd
+        An np.random.RandomState seed used to set the random seed for cv splitting, or random hyperparameter search.
+    cv_split_count
+        The number of splits to perform in any cv hyperparameter grid search.
+    metric_dict
+        A Dictionary of metrics to use to evaluate the model predictions.
+    standard_cv_scorer
+        The "standard cv metric" to use. This is what will be use in CV hyperparameter search as an loss function to minimize.
+    process_tag
+        A string to name the data processing methods. Used in naming the files that are dumped to disk.
+    model_tag
+        A string to define the model methods. Used in naming the files that are dumped to disk.
+    pipeline
+        The ProcessPipeline class to use to pre-process all data prior to modeling.
+    standard_cv_scorer
+        A callable attribute that sets how CV splits are defined, the default is an function returning None, but gets set as a StratifiedShuffleSplit downstream.
+
     Methods
     -------
     make_storage_dir()
@@ -871,8 +888,10 @@ class RegressionExperiment(ExperimentBase):
         Method used to process the raw data. This needs to be defined in the experiment's child class that the user writes.
     process_data_from_stored_models()
         Method used to process raw data, however, used when loading all data processing from disk. Ex. if evaluating a new dataset with an old model.
-    train_model(model: Any, full_setup: ExperimentSetup, cv_model: str = "random_search", cv_iterations: int = 20, params: Optional[Dict[str, Any]] = None)
-        The method to call to train the model. If a params arg is passed, then hyperparameter search is performed.
+    one_shot_train(self, ml_model: Any, data_setup: ExperimentSetup, parameters: Dict[str, List[Union[int, float, str]]]) -> Any:
+        Method to call to train the model. If a params arg is not passed, then the default parameters are used.
+    cv_train(self, ml_model: Any, data_setup: ExperimentSetup, parameters: Dict[str, List[Union[int, float, str]]], random_search: bool = True, random_iterations: int = 5, cv_split_function: Optional[Callable] = None) -> Any:
+        Method to call to train the model using cross validation for hyperparameter search.
     predict(full_setup: ExperimentSetup, model: Any, proba: bool = False)
         The method to perform predictions for a model.
     cv_splits(n_splits: int = 5)
@@ -887,6 +906,8 @@ class RegressionExperiment(ExperimentBase):
         Method to store a model. By default the model will be stored via joblib. Any model's native save method will be chosen here before joblib.
     default_load_model(model: Optional[Any] = None)
         Method to load a model. By default the model will be loaded via joblib. Any model's native load method will be chosen here before joblib.
+    set_pipeline(self, pipeline: Type[ProcessPipelineBase], process_tag: Optional[str]=None)
+        Method to set the current pipeline to use as the pre-processor.
     evaluate_predictions(labels: Union[pd.Series, np.ndarray], predictions: Union[pd.Series, np.ndarray], class_probabilities: Optional[np.ndarray] = None, baseline_value: Optional[Union[float, int]] = None)
         Method to evaluate the predictions via regression metrics.
     """

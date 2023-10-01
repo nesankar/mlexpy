@@ -3,10 +3,10 @@ from pathlib import Path
 import numpy as np
 from typing import List
 import argparse
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.datasets import load_iris
 from mlexpy import pipeline_utils, experiment
 from from_module_example import IrisPipeline
-from model_defs import MODEL_DICT
 
 
 def parse_args(args: List[str]) -> argparse.Namespace:
@@ -48,14 +48,7 @@ def parse_args(args: List[str]) -> argparse.Namespace:
     return parser.parse_args(args)
 
 
-"""An example similar to the notebook previously, here with more complexity shown as a script, and CL runnable, and showing
-hyperparameter tuning via cv search.
-
-One possible pythonic way to store our model definitions is via the MlModelInfo named tuple, with
-examples shown in the model_defs.py file. This proivdes us one source of truth to store where we define the information about
-any given machine learning model (following the fairly standardized sklearn / model and hyperparameter frameworks).
-Usage is shown below.
-"""
+"""An example similar to the notebook previously, here with more complexity shown as a script, and CL runnable"""
 
 if __name__ == "__main__":
     args = parse_args(sys.argv[1:])
@@ -95,10 +88,10 @@ if __name__ == "__main__":
     experiment_obj = experiment.ClassifierExperiment(
         train_setup=experiment_setup.train_data,
         test_setup=experiment_setup.test_data,
-        cv_split_count=5,
         model_tag="example_development_model",
         process_tag="example_development_process",
         model_dir=Path(__file__).parent,
+        rnd_int=args.model_seed,
     )
 
     experiment_obj.set_pipeline(IrisPipeline)
@@ -106,27 +99,18 @@ if __name__ == "__main__":
     # Now begin the experimentation, start with performing the data processing...
     processed_datasets = experiment_obj.process_data()
 
-    # ... then train our model. But this time, define our model based on what we have written into our model dictionary
-    method_definition_function = MODEL_DICT["randomforest"]
-
-    # First, call the method_definition_function with the classifier/regressor boolean defined...
-    ml_model_data = method_definition_function(classifier=True)
-
-    # Now we instantiate the model from the ml_model_data.model attribute...
-    ml_model = ml_model_data.model
-
-    model_params = ml_model_data.hyperparams
-    model_params["random_state"] = [args.model_seed]
-
-    # ... then train our model. This time pass the ml_model_data hyperparameters to search over (this is a dictionary).
-    # By default, if the params are passed, the a form of cross validated search will be performed over the provided
-    # parameters. Unless defined otherwise, random search over the hyperparameter space is performed.
+    # ... then train our model...
     trained_model = experiment_obj.cv_train(
-        processed_datasets,
-        ml_model,
-        parameters=model_params,  # If this is passed, then cross validation search is performed, but slow.
+        ml_model=RandomForestClassifier,
+        random_iterations=5,
         random_search=True,
-        random_iterations=20,
+        data_setup=processed_datasets,
+        parameters={
+            "n_estimators": [10, 50, 100, 200],
+            "max_depth": [1, 5, 10, 20, 50],
+            "criterion": ["gini", "entropy", "log_loss"],
+            "random_state": [args.model_seed],
+        },
     )
 
     # Get the predictions and evaluate the performance.
@@ -140,7 +124,10 @@ if __name__ == "__main__":
         class_probabilities=class_probabilities,
     )
 
-    # ... also evaluate the ROC based metrics
-    roc_results = experiment_obj.evaluate_roc_metrics(
-        processed_datasets, class_probabilities, trained_model
+    # Lastly, we can evaluate the model using cross validation
+    cv_eval = experiment_obj.evaluate_predictions_cross_validation(
+        metric_function=experiment_obj.metric_dict["balanced_accuracy"],
+        predictions=predictions,
+        data=processed_datasets.test_data,
+        random_iterations=10,
     )
