@@ -325,6 +325,13 @@ class ExperimentBase:
             )
 
         ml_model = ml_model(**parameters)
+        if not hasattr(ml_model, "fit"):
+            raise AttributeError(
+                f"The model {ml_model} has no `.fit()` method to call. Make sure your model class has a `.fit` method."
+            )
+        logger.info(
+            f"\nOne-shot Training over {data_setup.train_data.obs.shape[1]} features ({data_setup.train_data.obs.columns}) and {len(data_setup.train_data.obs)} examples.\n"
+        )
         ml_model.fit(data_setup.train_data.obs, data_setup.train_data.labels)
 
         logger.info("Model trained")
@@ -362,13 +369,10 @@ class ExperimentBase:
         Any -- the trained model
         """
 
-        logger.info(
-            f"Training over {data_setup.train_data.obs.shape[1]} features ({data_setup.train_data.obs.columns}) and {len(data_setup.train_data.obs)} examples."
-        )
         logger.info(f"Performing cross validated model training for {ml_model}.")
 
         if any(
-            isinstance(value, Iterable) is False and isinstance(value, str) is True
+            isinstance(value, Iterable) is False or isinstance(value, str) is True
             for value in parameters.values()
         ):
             logger.warn(
@@ -422,9 +426,18 @@ class ExperimentBase:
         -------
         nd.array
         """
+
         if proba:
+            if not hasattr(ml_model, "predict_proba"):
+                raise AttributeError(
+                    f"The model {ml_model} has no `.predict_proba()` method to call. Make sure your model class has a `.predict_proba` method."
+                )
             return ml_model.predict_proba(data_setup.test_data.obs)
         else:
+            if not hasattr(ml_model, "predict"):
+                raise AttributeError(
+                    f"The model {ml_model} has no `.predict()` method to call. Make sure your model class has a `.predict` method."
+                )
             return ml_model.predict(data_setup.test_data.obs)
 
     def add_metric(self, metric: Callable, name: str) -> None:
