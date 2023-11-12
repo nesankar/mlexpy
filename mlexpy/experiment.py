@@ -290,7 +290,7 @@ class ExperimentBase:
         self,
         ml_model: Any,
         data_setup: ExperimentSetup,
-        parameters: Dict[str, List[Union[int, float, str]]],
+        parameters: Dict[str, List[Union[int, float, str]]] = {},
     ) -> Any:
         """
         Do model training here.
@@ -311,19 +311,27 @@ class ExperimentBase:
         logger.info(
             f"Training over {data_setup.train_data.obs.shape[1]} features ({data_setup.train_data.obs.columns}) and {len(data_setup.train_data.obs)} examples."
         )
-        logger.info("Performing standard model training.")
+        logger.info(f"Performing standard model training for {ml_model}.")
 
         if any(
-            isinstance(value, Iterable) or isinstance(value, str)
+            (isinstance(value, Iterable) and not isinstance(value, str))
             for value in parameters.values()
         ):
+            logger.warn(f"No lists allowed in the parameters. Check: {parameters}\n")
             raise (
                 ValueError(
-                    "One of the parameters passed to .one_shot_train() is a list. If working over a variable parameter space use .cv_train(), otherwise, make sure the values in the params dict are all singe values, and not lists."
+                    "One of the parameters passed to .one_shot_train() IS a list. If working over a variable parameter space use .cv_train(), otherwise, make sure the values in the params dict are all singe values, and not lists."
                 )
             )
 
         ml_model = ml_model(**parameters)
+        if not hasattr(ml_model, "fit"):
+            raise AttributeError(
+                f"The model {ml_model} has no `.fit()` method to call. Make sure your model class has a `.fit` method."
+            )
+        logger.info(
+            f"\nOne-shot Training over {data_setup.train_data.obs.shape[1]} features ({data_setup.train_data.obs.columns}) and {len(data_setup.train_data.obs)} examples.\n"
+        )
         ml_model.fit(data_setup.train_data.obs, data_setup.train_data.labels)
 
         logger.info("Model trained")
@@ -361,18 +369,18 @@ class ExperimentBase:
         Any -- the trained model
         """
 
-        logger.info(
-            f"Training over {data_setup.train_data.obs.shape[1]} features ({data_setup.train_data.obs.columns}) and {len(data_setup.train_data.obs)} examples."
-        )
-        logger.info("Performing cross validated model training.")
+        logger.info(f"Performing cross validated model training for {ml_model}.")
 
         if any(
-            isinstance(value, list) is False and isinstance(value, str) is True
+            isinstance(value, Iterable) is False or isinstance(value, str) is True
             for value in parameters.values()
         ):
+            logger.warn(
+                f"No scalar values allowed in the parameters. Check: {parameters}\n"
+            )
             raise (
                 ValueError(
-                    "One of the parameters passed to .one_shot_train() is NOT a list. Can not search over the parameter space unless all values are lists of possible values. Note: a list of length 1 is valid"
+                    "One of the parameters passed to .one_shot_train() IS NOT a list. Can not search over the parameter space unless all values are lists of possible values. Note: a list of length 1 is valid"
                 )
             )
 
@@ -418,9 +426,18 @@ class ExperimentBase:
         -------
         nd.array
         """
+
         if proba:
+            if not hasattr(ml_model, "predict_proba"):
+                raise AttributeError(
+                    f"The model {ml_model} has no `.predict_proba()` method to call. Make sure your model class has a `.predict_proba` method."
+                )
             return ml_model.predict_proba(data_setup.test_data.obs)
         else:
+            if not hasattr(ml_model, "predict"):
+                raise AttributeError(
+                    f"The model {ml_model} has no `.predict()` method to call. Make sure your model class has a `.predict` method."
+                )
             return ml_model.predict(data_setup.test_data.obs)
 
     def add_metric(self, metric: Callable, name: str) -> None:
