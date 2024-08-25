@@ -70,6 +70,10 @@ def test_cv_splitting(simple_binary_dataframe):
     assert any([i_1 != idcs_3[0][0][i] for i, i_1 in enumerate(idcs_1[0][0])])
     "The splitter data ARE the same when initializing DIFFERENT cv_splitter objects."
 
+    # Test that we correctly set the startify flag
+    cv3.set_stratify(True)
+    assert cv3._stratify_split == True
+
 
 def test_parameter_space(model_definitions):
 

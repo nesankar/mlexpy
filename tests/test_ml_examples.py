@@ -403,16 +403,19 @@ def test_cv_classification_model_match(
     # Now begin the experimentation, start with performing the data processing...
     processed_datasets = experiment_obj.process_data()
 
-    # ... then train our model...
+    # ... then train our model... (testing that we default to grid search if smaller space than iterations)
     trained_model = experiment_obj.cv_train(
         data_setup=processed_datasets,
         ml_model=RandomForestClassifier,
         parameters={
-            "n_estimators": [10, 50, 100, 200],
-            "max_depth": [1, 5, 10, 20, 50],
-            "criterion": ["gini", "entropy", "log_loss"],
+            "n_estimators": [
+                50,
+            ],
+            "max_depth": [5, 20],
+            "criterion": ["log_loss"],
             "random_state": [rs_10],
         },
+        random_iterations=10,
     )
     # Get the predictions and evaluate the performance.
     predictions = experiment_obj.predict(processed_datasets, trained_model)

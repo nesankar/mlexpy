@@ -70,7 +70,9 @@ def test_basic_processor_exceptions(bad_custom_model, good_custom_model, empty_d
 
     with pytest.raises(AttributeError):
         # Assert that we can not call train on our bad model.
-        exp.one_shot_train(bad_model, data_setup=empty_data, parameters={})
+        exp.one_shot_train(
+            bad_model, data_setup=empty_data, parameters={"placeholder": [1.0]}
+        )
 
     with pytest.raises(AttributeError):
         # Assert that we can not call predict on our bad model.
