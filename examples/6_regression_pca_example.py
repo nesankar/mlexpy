@@ -94,7 +94,6 @@ class DiabetesProcessor(processor.ProcessPipelineBase):
         training: bool = True,
         label_series: Optional[pd.Series] = None,
     ) -> pd.DataFrame:
-
         """All data processing that is to be performed for the iris classification task."""
 
         # Do a copy of the passed df
