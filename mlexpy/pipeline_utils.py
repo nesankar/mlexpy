@@ -279,6 +279,11 @@ class CrossValidation:
         scores = []
         for split in splits:
             model_setup = model(**params)
+            if not hasattr(model_setup, "fit"):
+                raise AttributeError(
+                    f"The model {model_setup} has no `.fit()` method to call. Make sure your model class has a `.fit` method."
+                )
+
             # Get the split specific dataset...
             cv_train_obs, cv_train_labels = (
                 data.obs.iloc[split[0]],
@@ -287,6 +292,10 @@ class CrossValidation:
             cv_test_obs, cv_test_labels = (
                 data.obs.iloc[split[1]],
                 data.labels.iloc[split[1]],
+            )
+
+            logger.info(
+                f"\nCV Training over features ({cv_train_obs.columns}) and {len(cv_train_obs)} examples.\nTesting over {len(cv_test_obs)} examples.\n"
             )
 
             # ... then train the model and score.
