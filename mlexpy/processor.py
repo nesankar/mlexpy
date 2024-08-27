@@ -616,7 +616,6 @@ class ProcessPipelineBase:
         df: pd.DataFrame,
         thresh: float,
     ) -> None:
-
         """Drop any of the correlated columns according to the column_coor_thresh"""
         correlated_columns = self.get_correlated_columns(df, thresh)
 
@@ -744,9 +743,9 @@ class ProcessPipelineBase:
                     ]
                     result_df = pd.concat([result_df, transformed_df], axis=1)
                 else:
-                    result_df[
-                        f"{name_to_use}_{transformation_name}"
-                    ] = transformed_result
+                    result_df[f"{name_to_use}_{transformation_name}"] = (
+                        transformed_result
+                    )
 
         if not self.feature_reducer.columns_to_drop:
             self.feature_reducer.fit(self.columns_to_drop)
