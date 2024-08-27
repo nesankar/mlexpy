@@ -37,14 +37,6 @@ def parse_args(args: List[str]) -> argparse.Namespace:
         type=float,
     )
 
-    parser.add_argument(
-        "-m",
-        "--model_type",
-        help="What is the model  to use?",
-        choices=["random_forest", "sgd"],
-        type=str,
-    )
-
     return parser.parse_args(args)
 
 
@@ -94,7 +86,7 @@ class DiabetesProcessor(processor.ProcessPipelineBase):
         training: bool = True,
         label_series: Optional[pd.Series] = None,
     ) -> pd.DataFrame:
-        """All data processing that is to be performed for the iris classification task."""
+        """All data processing that is to be performed for the diabetes prediction task."""
 
         # Do a copy of the passed df
         df = df.copy()
