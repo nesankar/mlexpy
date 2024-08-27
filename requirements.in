@@ -3,3 +3,4 @@ numpy
 scikit-learn
 matplotlib
 seaborn
+packaging==24.1

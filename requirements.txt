@@ -27,8 +27,10 @@ numpy==1.24.1
     #   scikit-learn
     #   scipy
     #   seaborn
-packaging==22.0
-    # via matplotlib
+packaging==24.1
+    # via
+    #   -r requirements.in
+    #   matplotlib
 pandas==1.5.2
     # via
     #   -r requirements.in
