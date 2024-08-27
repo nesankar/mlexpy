@@ -8,8 +8,10 @@ contourpy==1.0.6
     # via matplotlib
 cycler==0.11.0
     # via matplotlib
-fonttools==4.38.0
-    # via matplotlib
+fonttools==4.53.1
+    # via
+    #   -r requirements.in
+    #   matplotlib
 joblib==1.2.0
     # via scikit-learn
 kiwisolver==1.4.4
@@ -35,8 +37,10 @@ pandas==1.5.2
     # via
     #   -r requirements.in
     #   seaborn
-pillow==9.3.0
-    # via matplotlib
+pillow==10.4.0
+    # via
+    #   -r requirements.in
+    #   matplotlib
 pyparsing==3.0.9
     # via matplotlib
 python-dateutil==2.8.2
