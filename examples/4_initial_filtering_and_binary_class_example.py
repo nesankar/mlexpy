@@ -37,14 +37,6 @@ def parse_args(args: List[str]) -> argparse.Namespace:
         type=float,
     )
 
-    parser.add_argument(
-        "-m",
-        "--model_type",
-        help="What is the model  to use?",
-        choices=["random_forest", "sgdclassifier"],
-        type=str,
-    )
-
     return parser.parse_args(args)
 
 
