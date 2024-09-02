@@ -144,6 +144,9 @@ def test_metric_add_remove():
     # Assert that this metric is now in the dictionary
     assert exp.metric_dict[metric_name] == metric_fn
 
+    # Assert that this metric predicts correctly
+    assert exp.metric_dict[metric_name](labels=[1, 2, 3], predictions=[0, 1, 2]) == 3
+
     exp.remove_metric(metric_name)
     # Assert that the metric dict is empty again
     assert len(exp.metric_dict) == 0
